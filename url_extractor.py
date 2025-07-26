@@ -125,7 +125,7 @@ class URLContentExtractor:
         return 'generic'
     
     def _extract_youtube_content(self, url: str) -> Dict:
-        """유튜브 영상에서 콘텐츠 추출"""
+        """유튜브 영상에서 콘텐츠 추출 (딜레이+fallback)"""
         try:
             video_id = self._extract_video_id(url)
             if not video_id:
@@ -134,14 +134,20 @@ class URLContentExtractor:
             # 비디오 정보 가져오기
             video_info = self._get_youtube_video_info(video_id)
             
+            # 1. 딜레이 추가 (2~4초 랜덤)
+            delay_sec = random.uniform(2, 4)
+            time.sleep(delay_sec)
+            
             # 자막 추출 시도
             transcript = self._get_youtube_transcript_web(video_id)
-
-            # 자막이 정상적으로 추출된 경우에만 요약 생성
+            
+            # 자막이 정상적으로 추출된 경우
             if transcript and not (
                 transcript.startswith('자막 추출 실패:') or
                 transcript.startswith('자막을 찾을 수 없습니다.') or
-                transcript.startswith('YouTube Transcript API가 설치되지 않아')
+                transcript.startswith('YouTube Transcript API가 설치되지 않아') or
+                'Too Many Requests' in transcript or
+                'no element found' in transcript
             ):
                 summary = self._summarize_youtube_content(video_info, transcript)
                 return {
@@ -153,25 +159,24 @@ class URLContentExtractor:
                     'source_type': 'youtube',
                     'original_title': video_info.get('title', ''),
                     'video_id': video_id,
-                    'duration': video_info.get('duration', ''),
                     'channel': video_info.get('channel', ''),
                     'transcript': transcript
                 }
             else:
-                # 자막이 없거나 추출 실패 시 안내 메시지 반환
+                # 2. fallback: 자막 추출 실패 시, 제목과 설명만으로 블로그 글 생성
+                fallback_content = self._generate_fallback_content(video_info)
                 return {
-                    'success': False,
-                    'error': f'유튜브 자막을 추출할 수 없습니다.\n사유: {transcript}',
+                    'success': True,
                     'title': video_info.get('title', ''),
-                    'content': '',
-                    'summary': '',
+                    'content': fallback_content,
+                    'summary': fallback_content,
                     'url': url,
                     'source_type': 'youtube',
                     'original_title': video_info.get('title', ''),
                     'video_id': video_id,
-                    'duration': video_info.get('duration', ''),
                     'channel': video_info.get('channel', ''),
-                    'transcript': transcript
+                    'transcript': transcript,
+                    'note': '자막 추출 실패로 제목과 설명만으로 생성되었습니다.'
                 }
         except Exception as e:
             return {'success': False, 'error': f'YouTube 콘텐츠 추출 실패: {str(e)}'}
@@ -545,6 +550,40 @@ class URLContentExtractor:
             
         except Exception as e:
             return content[:1000] + "..." if len(content) > 1000 else content
+
+    def _generate_fallback_content(self, video_info: Dict) -> str:
+        """자막이 없을 때 제목과 설명만으로 블로그 글 생성"""
+        title = video_info.get('title', '')
+        channel = video_info.get('channel', '')
+        
+        prompt = f"""
+다음 유튜브 영상의 제목을 바탕으로 블로그 글을 작성해주세요:
+
+제목: {title}
+채널: {channel}
+
+요구사항:
+1. 800-1200자 정도의 블로그 글 형태로 작성
+2. 제목에서 추측할 수 있는 내용을 바탕으로 작성
+3. 구조화된 형태 (서론, 본론, 결론)
+4. 독자가 이해하기 쉽게 작성
+5. 제목의 키워드를 중심으로 내용 구성
+"""
+        
+        try:
+            if not openai.api_key:
+                return f"제목: {title}\n\n이 영상에 대한 자세한 내용은 유튜브에서 직접 확인해보세요."
+            
+            response = openai.ChatCompletion.create(
+                model="gpt-4o-mini",
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=1500,
+                temperature=0.7
+            )
+            
+            return response.choices[0].message.content.strip()
+        except Exception as e:
+            return f"제목: {title}\n\n이 영상에 대한 자세한 내용은 유튜브에서 직접 확인해보세요."
 
 def generate_blog_from_url(url: str, custom_angle: str = "") -> Dict:
     """
