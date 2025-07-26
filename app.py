@@ -566,7 +566,9 @@ def main():
         )
         if is_youtube:
             method = content.get('method', 'unknown')
-            if method == 'youtube_api':
+            if method == 'youtube_api_with_transcript':
+                st.success(f"✅ YouTube Data API v3 + youtube-transcript-api로 자막 추출 성공 (길이: {len(transcript)} 글자)")
+            elif method == 'youtube_api':
                 st.success(f"✅ YouTube Data API v3로 자막 추출 성공 (길이: {len(transcript)} 글자)")
             elif method == 'youtube_api_description':
                 st.info(f"ℹ️ YouTube Data API v3로 영상 설명 기반 생성 (자막 없음)")

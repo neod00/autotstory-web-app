@@ -581,13 +581,20 @@ class URLContentExtractor:
             if 'error' in video_info:
                 return {'success': False, 'error': video_info['error']}
             
-            # 자막 가져오기
+            # 자막 목록 가져오기 (다국어 지원)
             captions = self._get_captions_api(video_id)
             
             if captions:
-                # 자막이 있으면 자막 기반 생성
-                transcript = self._download_caption_api(captions[0]['id'])
-                if transcript:
+                st.info(f"✅ YouTube API에서 {len(captions)}개의 자막을 발견했습니다.")
+                # 자막이 있으면 youtube-transcript-api로 실제 내용 추출 시도
+                transcript = self._get_youtube_transcript_web(video_id)
+                if transcript and not (
+                    transcript.startswith('자막 추출 실패:') or
+                    transcript.startswith('자막을 찾을 수 없습니다.') or
+                    transcript.startswith('YouTube Transcript API가 설치되지 않아') or
+                    'Too Many Requests' in transcript or
+                    'no element found' in transcript
+                ):
                     summary = self._summarize_youtube_content(video_info, transcript)
                     return {
                         'success': True,
@@ -600,11 +607,14 @@ class URLContentExtractor:
                         'video_id': video_id,
                         'channel': video_info['channel'],
                         'transcript': transcript,
-                        'method': 'youtube_api'
+                        'method': 'youtube_api_with_transcript'
                     }
+                else:
+                    st.warning("⚠️ YouTube API에서 자막을 발견했지만, youtube-transcript-api로 내용 추출에 실패했습니다.")
             
-            # 자막이 없으면 설명 기반 생성
+            # 자막이 없거나 추출 실패 시 설명 기반 생성
             if video_info.get('description'):
+                st.info("ℹ️ 영상 설명을 기반으로 블로그 글을 생성합니다.")
                 fallback_content = self._generate_from_description(video_info)
                 return {
                     'success': True,
@@ -702,7 +712,7 @@ class URLContentExtractor:
             return {'error': str(e)}
     
     def _get_captions_api(self, video_id: str) -> List[Dict]:
-        """YouTube API로 자막 목록 가져오기"""
+        """YouTube API로 자막 목록 가져오기 (다국어 지원)"""
         try:
             request = self.youtube_client.captions().list(
                 part='snippet',
@@ -711,16 +721,44 @@ class URLContentExtractor:
             response = request.execute()
             
             captions = []
-            for item in response.get('items', []):
-                if item['snippet']['language'] == 'ko':
+            all_captions = response.get('items', [])
+            
+            if not all_captions:
+                st.info("ℹ️ YouTube API에서 자막을 찾을 수 없습니다.")
+                return []
+            
+            st.info(f"🔍 YouTube API에서 총 {len(all_captions)}개의 자막을 발견했습니다.")
+            
+            # 사용 가능한 자막 정보 표시
+            for item in all_captions:
+                snippet = item['snippet']
+                language = snippet['language']
+                track_kind = snippet.get('trackKind', 'unknown')
+                st.info(f"  - {language} ({track_kind})")
+                
+                # 한국어 우선, 영어 차선, 기타 순서로 수집
+                if language == 'ko':
+                    captions.insert(0, {
+                        'id': item['id'],
+                        'language': language,
+                        'trackKind': track_kind
+                    })
+                elif language == 'en':
                     captions.append({
                         'id': item['id'],
-                        'language': item['snippet']['language'],
-                        'trackKind': item['snippet']['trackKind']
+                        'language': language,
+                        'trackKind': track_kind
+                    })
+                else:
+                    captions.append({
+                        'id': item['id'],
+                        'language': language,
+                        'trackKind': track_kind
                     })
             
             return captions
-        except HttpError:
+        except HttpError as e:
+            st.warning(f"⚠️ YouTube API 자막 목록 조회 실패: {e}")
             return []
     
     def _download_caption_api(self, caption_id: str) -> str:
