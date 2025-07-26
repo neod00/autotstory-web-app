@@ -24,6 +24,9 @@ try:
 except ImportError as e:
     IMAGE_GENERATOR_AVAILABLE = False
     st.warning(f"⚠️ 이미지 생성 모듈 로드 실패: {e}")
+except Exception as e:
+    IMAGE_GENERATOR_AVAILABLE = False
+    st.warning(f"⚠️ 이미지 생성 모듈 초기화 실패: {e}")
 
 # 트렌드 분석 모듈 import
 try:

@@ -16,7 +16,25 @@ import time
 import openai
 import os
 from typing import Dict, Optional, List
-import streamlit as st
+import random
+
+# streamlit import를 조건부로 처리
+try:
+    import streamlit as st
+    STREAMLIT_AVAILABLE = True
+except ImportError:
+    STREAMLIT_AVAILABLE = False
+    # streamlit이 없을 때를 위한 더미 함수
+    def st_info(msg): print(f"INFO: {msg}")
+    def st_success(msg): print(f"SUCCESS: {msg}")
+    def st_warning(msg): print(f"WARNING: {msg}")
+    def st_error(msg): print(f"ERROR: {msg}")
+    st = type('st', (), {
+        'info': st_info,
+        'success': st_success,
+        'warning': st_warning,
+        'error': st_error
+    })()
 
 # YouTube 자막 추출을 위한 라이브러리 (선택적 import)
 try:
