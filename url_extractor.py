@@ -381,22 +381,34 @@ class URLContentExtractor:
             }
     
     def _get_youtube_transcript_web(self, video_id: str) -> str:
-        """유튜브 자막 추출 (최신 youtube-transcript-api 호환)"""
+        """유튜브 자막 추출 (한국어 자동 생성 포함, 언어 우선순위 개선)"""
         try:
             if not YOUTUBE_TRANSCRIPT_AVAILABLE:
                 return "YouTube Transcript API가 설치되지 않아 자막을 가져올 수 없습니다."
             transcript_data = None
-            # 한국어 우선
+            # 1. 한국어 우선
             try:
                 transcript_data = YouTubeTranscriptApi.get_transcript(video_id, languages=['ko'])
             except Exception:
+                # 2. 모든 자막 중에서 ko(한국어) 자동 생성 자막이 있으면 그걸 사용
                 try:
-                    transcript_data = YouTubeTranscriptApi.get_transcript(video_id, languages=['en'])
+                    transcripts = YouTubeTranscriptApi.list_transcripts(video_id)
+                    for t in transcripts:
+                        if hasattr(t, 'language_code') and t.language_code == 'ko':
+                            transcript_data = t.fetch()
+                            break
                 except Exception:
+                    pass
+                # 3. 그래도 없으면 영어(en) 시도
+                if transcript_data is None:
                     try:
-                        transcript_data = YouTubeTranscriptApi.get_transcript(video_id)
-                    except Exception as e:
-                        return f"자막 추출 실패: {str(e)}"
+                        transcript_data = YouTubeTranscriptApi.get_transcript(video_id, languages=['en'])
+                    except Exception:
+                        # 4. 마지막으로 아무 언어나 시도
+                        try:
+                            transcript_data = YouTubeTranscriptApi.get_transcript(video_id)
+                        except Exception as e:
+                            return f"자막 추출 실패: {str(e)}"
             if transcript_data:
                 formatter = TextFormatter()
                 return formatter.format_transcript(transcript_data)
