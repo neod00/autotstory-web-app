@@ -353,21 +353,21 @@ def generate_basic_content(topic: str, custom_angle: str = "") -> Dict:
     keywords = [topic, f"{topic} 가이드", f"{topic} 방법", f"{topic} 팁", f"{topic} 정보"]
     tags = [topic, "가이드", "정보", "팁"]
 
-            # 이미지 검색 (이미지 생성 기능이 사용 가능한 경우)
-        images = []
-        if IMAGE_GENERATOR_AVAILABLE:
-            st.info("🖼️ 관련 이미지 검색 중...")
-            images = get_multiple_images_v2(keywords, count=3)
-        
-        return {
-            "title": title,
-            "introduction": introduction,
-            "main_content": main_content,
-            "conclusion": conclusion,
-            "keywords": keywords,
-            "tags": tags,
-            "images": images
-        }
+    # 이미지 검색 (이미지 생성 기능이 사용 가능한 경우)
+    images = []
+    if IMAGE_GENERATOR_AVAILABLE:
+        st.info("🖼️ 관련 이미지 검색 중...")
+        images = get_multiple_images_v2(keywords, count=3)
+    
+    return {
+        "title": title,
+        "introduction": introduction,
+        "main_content": main_content,
+        "conclusion": conclusion,
+        "keywords": keywords,
+        "tags": tags,
+        "images": images
+    }
 
 def parse_text_content(content_text: str, topic: str) -> Dict:
     """텍스트 기반 콘텐츠 파싱"""
