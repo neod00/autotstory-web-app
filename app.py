@@ -9,6 +9,30 @@ import os
 from typing import List, Dict, Optional
 import random
 
+# URL 콘텐츠 추출 모듈 import
+try:
+    from url_extractor import generate_blog_from_url, URLContentExtractor
+    URL_CONTENT_AVAILABLE = True
+except ImportError as e:
+    URL_CONTENT_AVAILABLE = False
+    st.warning(f"⚠️ URL 콘텐츠 추출 모듈 로드 실패: {e}")
+
+# 이미지 생성 모듈 import
+try:
+    from image_generator import get_multiple_images_v2, generate_image_html
+    IMAGE_GENERATOR_AVAILABLE = True
+except ImportError as e:
+    IMAGE_GENERATOR_AVAILABLE = False
+    st.warning(f"⚠️ 이미지 생성 모듈 로드 실패: {e}")
+
+# 트렌드 분석 모듈 import
+try:
+    from trend_analyzer import TrendAnalyzer
+    TREND_ANALYZER_AVAILABLE = True
+except ImportError as e:
+    TREND_ANALYZER_AVAILABLE = False
+    st.warning(f"⚠️ 트렌드 분석 모듈 로드 실패: {e}")
+
 # 페이지 설정
 st.set_page_config(
     page_title="AutoTstory - 블로그 자동 생성기",
@@ -152,6 +176,121 @@ JSON 형식으로 응답해주세요:
         st.error(f"콘텐츠 생성 중 오류 발생: {str(e)}")
         return generate_basic_content(topic, custom_angle)
 
+def generate_blog_from_url_v2(url: str, custom_angle: str = "") -> Dict:
+    """URL 기반 블로그 콘텐츠 생성"""
+    if not URL_CONTENT_AVAILABLE:
+        st.error("❌ URL 콘텐츠 추출 모듈을 사용할 수 없습니다.")
+        return None
+    
+    try:
+        st.info(f"🔗 URL 기반 콘텐츠 생성 시작: {url}")
+        
+        # URL에서 콘텐츠 생성
+        url_result = generate_blog_from_url(url, custom_angle)
+        
+        if not url_result['success']:
+            st.error(f"❌ URL 콘텐츠 생성 실패: {url_result['error']}")
+            return None
+        
+        # 태그 정리
+        tags = url_result['tags'].strip()
+        if tags:
+            tags = tags.replace('#', '').strip()  # 해시태그 제거
+        
+        # 키워드 생성 (제목에서 추출)
+        keywords = extract_keywords_from_title(url_result['title'])
+        
+        # 이미지 검색 (이미지 생성 기능이 사용 가능한 경우)
+        images = []
+        if IMAGE_GENERATOR_AVAILABLE:
+            st.info("🖼️ 관련 이미지 검색 중...")
+            images = get_multiple_images_v2(keywords, count=3)
+        
+        # V2 시스템 호환 형식으로 변환
+        blog_post = {
+            'title': url_result['title'],
+            'introduction': url_result['content'][:600] + "..." if len(url_result['content']) > 600 else url_result['content'],
+            'main_content': url_result['content'],
+            'conclusion': generate_conclusion_from_content(url_result['content']),
+            'keywords': keywords,
+            'tags': tags.split(', ') if tags else [url_result['source_type'], '정보'],
+            'images': images,
+            'source_url': url_result['source_url'],
+            'source_type': url_result['source_type'],
+            'original_title': url_result.get('original_title', '')
+        }
+        
+        st.success("✅ URL 기반 블로그 포스트 생성 완료!")
+        return blog_post
+        
+    except Exception as e:
+        st.error(f"❌ URL 기반 콘텐츠 생성 중 오류 발생: {e}")
+        return None
+
+def extract_keywords_from_title(title: str) -> List[str]:
+    """제목에서 키워드 추출"""
+    try:
+        if not openai.api_key:
+            return [title, "정보", "가이드"]
+        
+        prompt = f"""
+다음 제목에서 SEO 키워드를 5-8개 추출해주세요:
+
+제목: {title}
+
+JSON 형식으로 응답해주세요:
+{{
+    "keywords": ["키워드1", "키워드2", "키워드3"]
+}}
+"""
+        
+        response = openai.ChatCompletion.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=200,
+            temperature=0.7
+        )
+        
+        content_text = response.choices[0].message.content.strip()
+        
+        try:
+            data = json.loads(content_text)
+            return data.get('keywords', [title, "정보", "가이드"])
+        except:
+            return [title, "정보", "가이드"]
+            
+    except Exception as e:
+        return [title, "정보", "가이드"]
+
+def generate_conclusion_from_content(content: str) -> str:
+    """콘텐츠에서 결론 생성"""
+    try:
+        if not openai.api_key:
+            return content[-300:] + "..." if len(content) > 300 else content
+        
+        prompt = f"""
+다음 콘텐츠의 결론 부분을 300-400자로 작성해주세요:
+
+콘텐츠: {content[:1000]}
+
+요구사항:
+1. 300-400자 정도의 결론
+2. 핵심 내용 요약
+3. 독자에게 도움이 되는 마무리
+"""
+        
+        response = openai.ChatCompletion.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=500,
+            temperature=0.7
+        )
+        
+        return response.choices[0].message.content.strip()
+        
+    except Exception as e:
+        return content[-300:] + "..." if len(content) > 300 else content
+
 def generate_basic_content(topic: str, custom_angle: str = "") -> Dict:
     """기본 템플릿 기반 콘텐츠 생성"""
     title = f"{topic} 완벽 가이드"
@@ -214,14 +353,21 @@ def generate_basic_content(topic: str, custom_angle: str = "") -> Dict:
     keywords = [topic, f"{topic} 가이드", f"{topic} 방법", f"{topic} 팁", f"{topic} 정보"]
     tags = [topic, "가이드", "정보", "팁"]
 
-    return {
-        "title": title,
-        "introduction": introduction,
-        "main_content": main_content,
-        "conclusion": conclusion,
-        "keywords": keywords,
-        "tags": tags
-    }
+            # 이미지 검색 (이미지 생성 기능이 사용 가능한 경우)
+        images = []
+        if IMAGE_GENERATOR_AVAILABLE:
+            st.info("🖼️ 관련 이미지 검색 중...")
+            images = get_multiple_images_v2(keywords, count=3)
+        
+        return {
+            "title": title,
+            "introduction": introduction,
+            "main_content": main_content,
+            "conclusion": conclusion,
+            "keywords": keywords,
+            "tags": tags,
+            "images": images
+        }
 
 def parse_text_content(content_text: str, topic: str) -> Dict:
     """텍스트 기반 콘텐츠 파싱"""
@@ -266,9 +412,17 @@ def parse_text_content(content_text: str, topic: str) -> Dict:
 
 def generate_html_content(content_data: Dict) -> str:
     """HTML 형식의 콘텐츠 생성"""
+    # 이미지 HTML 생성
+    images_html = ""
+    if 'images' in content_data and content_data['images']:
+        if IMAGE_GENERATOR_AVAILABLE:
+            images_html = generate_image_html(content_data['images'])
+    
     html_content = f"""
 <div class="blog-post">
     <h1>{content_data['title']}</h1>
+    
+    {images_html}
     
     <div class="introduction">
         <h2>서론</h2>
@@ -330,32 +484,62 @@ def main():
     with col1:
         st.markdown('<h2 class="sub-header">🎯 블로그 콘텐츠 생성</h2>', unsafe_allow_html=True)
         
-        # 입력 폼
-        topic = st.text_input("주제 입력", placeholder="예: 인공지능, 마케팅 전략, 건강 관리...")
-        custom_angle = st.text_area("특별한 각도나 요구사항", placeholder="원하는 특별한 관점이나 추가 요구사항이 있다면 입력하세요...")
+        # 생성 방식 선택
+        generation_type = st.radio(
+            "생성 방식 선택",
+            ["📝 주제 기반 생성", "🔗 URL 기반 생성"],
+            help="주제를 직접 입력하거나 URL에서 콘텐츠를 추출할 수 있습니다"
+        )
         
-        # 생성 버튼
-        if st.button("🚀 블로그 생성하기", type="primary"):
-            if not topic:
-                st.error("주제를 입력해주세요!")
-            else:
-                with st.spinner("블로그 콘텐츠를 생성하고 있습니다..."):
-                    use_ai = generation_mode == "AI 기반 생성"
-                    content_data = generate_blog_content(topic, custom_angle, use_ai)
-                    
-                    if content_data:
-                        st.session_state.generated_content = content_data
-                        st.session_state.current_step = 1
-                        st.success("✅ 블로그 콘텐츠가 생성되었습니다!")
+        if generation_type == "📝 주제 기반 생성":
+            # 주제 기반 생성
+            topic = st.text_input("주제 입력", placeholder="예: 인공지능, 마케팅 전략, 건강 관리...")
+            custom_angle = st.text_area("특별한 각도나 요구사항", placeholder="원하는 특별한 관점이나 추가 요구사항이 있다면 입력하세요...")
+            
+            # 생성 버튼
+            if st.button("🚀 블로그 생성하기", type="primary"):
+                if not topic:
+                    st.error("주제를 입력해주세요!")
+                else:
+                    with st.spinner("블로그 콘텐츠를 생성하고 있습니다..."):
+                        use_ai = generation_mode == "AI 기반 생성"
+                        content_data = generate_blog_content(topic, custom_angle, use_ai)
+                        
+                        if content_data:
+                            st.session_state.generated_content = content_data
+                            st.session_state.current_step = 1
+                            st.success("✅ 블로그 콘텐츠가 생성되었습니다!")
+        
+        else:
+            # URL 기반 생성
+            url = st.text_input("URL 입력", placeholder="예: https://youtube.com/watch?v=..., https://news.naver.com/...")
+            custom_angle = st.text_area("특별한 각도나 요구사항", placeholder="원하는 특별한 관점이나 추가 요구사항이 있다면 입력하세요...")
+            
+            if st.button("🚀 URL에서 블로그 생성하기", type="primary"):
+                if not url:
+                    st.error("URL을 입력해주세요!")
+                else:
+                    with st.spinner("URL에서 콘텐츠를 추출하고 블로그를 생성하고 있습니다..."):
+                        content_data = generate_blog_from_url_v2(url, custom_angle)
+                        
+                        if content_data:
+                            st.session_state.generated_content = content_data
+                            st.session_state.current_step = 1
+                            st.success("✅ URL 기반 블로그 콘텐츠가 생성되었습니다!")
     
     with col2:
         st.markdown('<h3 class="sub-header">📋 기능 안내</h3>', unsafe_allow_html=True)
         
         features = [
             "🤖 AI 기반 콘텐츠 생성",
+            "🔗 URL 기반 콘텐츠 추출",
+            "📺 YouTube 자막 추출",
+            "📰 뉴스/블로그 스크래핑",
+            "🖼️ Unsplash 이미지 자동 생성",
             "📝 SEO 최적화된 제목",
             "📊 구조화된 글 작성",
             "🏷️ 키워드 및 태그 자동 생성",
+            "🔥 실시간 트렌드 분석",
             "📱 모바일 최적화",
             "⚡ 빠른 생성 속도"
         ]
@@ -375,6 +559,23 @@ def main():
         
         with tab1:
             st.markdown(f"## {content['title']}")
+            
+            # 소스 정보 표시 (URL 기반 생성인 경우)
+            if 'source_url' in content and content['source_url']:
+                st.info(f"📎 원본 소스: {content['source_url']} ({content.get('source_type', 'unknown')})")
+            
+            # 이미지 표시 (이미지가 있는 경우)
+            if 'images' in content and content['images']:
+                st.markdown("### 🖼️ 관련 이미지")
+                for i, image in enumerate(content['images']):
+                    col1, col2 = st.columns([3, 1])
+                    with col1:
+                        st.image(image['url'], caption=f"{image['alt_text']} (by {image['photographer']})", use_column_width=True)
+                    with col2:
+                        st.markdown(f"**촬영자:** {image['photographer']}")
+                        st.markdown(f"**크기:** {image['width']}x{image['height']}")
+                        st.markdown(f"[Unsplash에서 보기]({image['unsplash_url']})")
+            
             st.markdown("### 서론")
             st.write(content['introduction'])
             st.markdown("### 본론")
