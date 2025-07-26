@@ -1,0 +1,18 @@
+# 이 파일을 .env로 복사하고 실제 값으로 변경하세요
+
+# 티스토리 로그인 정보 (카카오 계정)
+TISTORY_USERNAME=your_kakao_email@example.com
+TISTORY_PASSWORD=your_password
+
+# OpenAI API 키
+OPENAI_API_KEY=your_openai_api_key
+
+# Unsplash API 키
+UNSPLASH_ACCESS_KEY=your_unsplash_access_key
+
+# 자동화 설정 (선택사항)
+AUTO_POST_ENABLED=true
+AUTO_PUBLISH=true
+POST_SCHEDULE=daily
+POST_TIME=09:00
+MAX_POSTS_PER_DAY=1 

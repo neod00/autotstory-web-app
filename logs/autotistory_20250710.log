@@ -1,0 +1,9 @@
+2025-07-10 18:46:40,047 - AutoTstory - INFO - info:62 - 정보 메시지 테스트
+2025-07-10 18:46:40,048 - AutoTstory - INFO - success:68 - SUCCESS: 성공 메시지 테스트
+2025-07-10 18:46:40,048 - AutoTstory - WARNING - warning:75 - 경고 메시지 테스트
+2025-07-10 18:46:40,048 - AutoTstory - ERROR - error:87 - 오류 메시지 테스트
+2025-07-10 18:46:40,049 - AutoTstory - INFO - step:101 - STEP: 테스트 단계 1 - 테스트 세부사항
+2025-07-10 18:46:40,049 - AutoTstory - INFO - success:68 - SUCCESS: URL 처리 성공 - 유효성 검사: https://example.com
+2025-07-10 18:46:40,060 - AutoTstory - INFO - info:62 - 웹 스크래핑 성공 - 구글: 테스트 쿼리 (5개 결과)
+2025-07-10 18:46:40,060 - AutoTstory - INFO - success:68 - SUCCESS: 콘텐츠 생성 성공 - AI 생성: 테스트 주제
+2025-07-10 18:46:40,061 - AutoTstory - INFO - success:68 - SUCCESS: API 호출 성공 - OpenAI: chat/completions
