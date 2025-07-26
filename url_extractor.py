@@ -38,7 +38,7 @@ except ImportError:
 
 # YouTube 자막 추출을 위한 라이브러리 (선택적 import)
 try:
-    from youtube_transcript_api import YouTubeTranscriptApi
+    from youtube_transcript_api import YouTubeTranscriptApi, TranscriptsDisabled, VideoUnavailable, NoTranscriptFound
     from youtube_transcript_api.formatters import TextFormatter
     YOUTUBE_TRANSCRIPT_AVAILABLE = True
 except ImportError:
@@ -148,9 +148,13 @@ class URLContentExtractor:
     def _extract_youtube_content(self, url: str) -> Dict:
         """유튜브 영상에서 콘텐츠 추출 (YouTube API v3 우선, fallback)"""
         try:
+            # URL 유효성 검사
+            if not is_valid_youtube_url(url):
+                return {'success': False, 'error': '유효하지 않은 YouTube URL입니다.'}
+            
             video_id = self._extract_video_id(url)
             if not video_id:
-                return {'success': False, 'error': '유효하지 않은 YouTube URL입니다.'}
+                return {'success': False, 'error': 'YouTube URL에서 비디오 ID를 추출할 수 없습니다.'}
             
             # 1. YouTube API v3 시도 (우선)
             if self.youtube_client:
@@ -322,18 +326,8 @@ class URLContentExtractor:
             return {'success': False, 'error': f'일반 콘텐츠 추출 실패: {str(e)}'}
     
     def _extract_video_id(self, url: str) -> Optional[str]:
-        """YouTube URL에서 비디오 ID 추출"""
-        patterns = [
-            r'(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\n?#]+)',
-            r'youtube\.com\/watch\?.*v=([^&\n?#]+)'
-        ]
-        
-        for pattern in patterns:
-            match = re.search(pattern, url)
-            if match:
-                return match.group(1)
-        
-        return None
+        """YouTube URL에서 비디오 ID 추출 (안전한 방식)"""
+        return extract_video_id_safe(url)
     
     def _get_youtube_video_info(self, video_id: str) -> Dict:
         """YouTube 비디오 정보 가져오기"""
@@ -374,41 +368,19 @@ class URLContentExtractor:
             }
     
     def _get_youtube_transcript_web(self, video_id: str) -> str:
-        """유튜브 자막 추출 (수동+자동 생성 자막 모두 지원)"""
+        """유튜브 자막 추출 (안전한 방식)"""
         try:
             if not YOUTUBE_TRANSCRIPT_AVAILABLE:
                 return "YouTube Transcript API가 설치되지 않아 자막을 가져올 수 없습니다."
-            transcript_data = None
-            try:
-                transcripts = YouTubeTranscriptApi.list_transcripts(video_id)
-                # 1. 수동 생성 한국어 자막 우선
-                try:
-                    transcript = transcripts.find_manually_created_transcript(['ko'])
-                    transcript_data = transcript.fetch()
-                except Exception:
-                    # 2. 자동 생성 한국어 자막
-                    try:
-                        transcript = transcripts.find_generated_transcript(['ko'])
-                        transcript_data = transcript.fetch()
-                    except Exception:
-                        # 3. 영어 수동/자동 생성 자막
-                        try:
-                            transcript = transcripts.find_transcript(['en'])
-                            transcript_data = transcript.fetch()
-                        except Exception:
-                            # 4. 마지막으로 첫 번째 사용 가능한 자막
-                            try:
-                                transcript = list(transcripts)[0]
-                                transcript_data = transcript.fetch()
-                            except Exception as e:
-                                return f"자막 추출 실패: {str(e)}"
-            except Exception as e:
-                return f"자막 추출 실패: {str(e)}"
-            if transcript_data:
-                formatter = TextFormatter()
-                return formatter.format_transcript(transcript_data)
+            
+            # 안전한 자막 추출 함수 사용
+            result = fetch_transcript_safe(video_id, lang_codes=['ko', 'en'])
+            
+            if result['success']:
+                return result['transcript']
             else:
-                return "자막을 찾을 수 없습니다."
+                return f"자막 추출 실패: {result['error']}"
+                
         except Exception as e:
             return f"자막 추출 실패: {str(e)}"
     
@@ -891,3 +863,88 @@ def generate_tags_from_content(title: str, content: str) -> str:
         
     except Exception as e:
         return "블로그, 정보, 가이드" 
+
+def is_valid_youtube_url(url: str) -> bool:
+    """YouTube URL 유효성 검사"""
+    youtube_patterns = [
+        r'^https?://(www\.)?youtube\.com/watch\?v=[\w-]+',
+        r'^https?://(www\.)?youtu\.be/[\w-]+',
+        r'^https?://(www\.)?youtube\.com/embed/[\w-]+'
+    ]
+    return any(re.match(pattern, url) for pattern in youtube_patterns)
+
+def extract_video_id_safe(url: str) -> Optional[str]:
+    """안전한 비디오 ID 추출"""
+    try:
+        if not is_valid_youtube_url(url):
+            return None
+            
+        if "youtu.be" in url:
+            return url.split("/")[-1].split("?")[0]
+        elif "youtube.com" in url:
+            parsed_url = urlparse(url)
+            if parsed_url.path == "/watch":
+                return parse_qs(parsed_url.query).get("v", [None])[0]
+            elif parsed_url.path.startswith("/embed/"):
+                return parsed_url.path.split("/")[-1]
+        return None
+    except Exception:
+        return None
+
+@st.cache_data(ttl=3600)  # 1시간 캐시
+def fetch_transcript_safe(video_id: str, lang_codes: List[str] = ['ko', 'en']) -> Dict:
+    """안전한 자막 추출 (캐싱 포함)"""
+    try:
+        if not YOUTUBE_TRANSCRIPT_AVAILABLE:
+            return {
+                'success': False,
+                'error': 'youtube-transcript-api가 설치되지 않았습니다.',
+                'transcript': None
+            }
+        
+        # 타임아웃을 위한 시그널 설정 (Streamlit 환경에서 안정성 향상)
+        transcript_data = YouTubeTranscriptApi.get_transcript(
+            video_id, 
+            languages=lang_codes
+        )
+        
+        if transcript_data:
+            formatter = TextFormatter()
+            formatted_transcript = formatter.format_transcript(transcript_data)
+            return {
+                'success': True,
+                'transcript': formatted_transcript,
+                'raw_data': transcript_data,
+                'error': None
+            }
+        else:
+            return {
+                'success': False,
+                'error': '자막을 찾을 수 없습니다.',
+                'transcript': None
+            }
+            
+    except TranscriptsDisabled:
+        return {
+            'success': False,
+            'error': '자막이 비활성화된 영상입니다.',
+            'transcript': None
+        }
+    except VideoUnavailable:
+        return {
+            'success': False,
+            'error': '영상이 존재하지 않거나 접근이 제한되어 있습니다.',
+            'transcript': None
+        }
+    except NoTranscriptFound:
+        return {
+            'success': False,
+            'error': '해당 언어의 자막을 찾을 수 없습니다.',
+            'transcript': None
+        }
+    except Exception as e:
+        return {
+            'success': False,
+            'error': f'자막 추출 중 오류 발생: {str(e)}',
+            'transcript': None
+        } 
