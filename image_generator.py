@@ -347,7 +347,7 @@ class ImageGenerator:
                 '스콧거스리': 'scott guthrie',
                 '케빈스콧': 'kevin scott',
                 '에이미후드': 'amy hood',
-                '크리스캐포스': 'chris capossela",
+                '크리스캐포스': 'chris capossela',
                 '라지브수리': 'rajiv suri',
                 '앤드류윌슨': 'andrew wilson',
                 '제니퍼테일러': 'jennifer taylor',
