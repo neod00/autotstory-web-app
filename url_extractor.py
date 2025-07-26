@@ -136,24 +136,43 @@ class URLContentExtractor:
             
             # 자막 추출 시도
             transcript = self._get_youtube_transcript_web(video_id)
-            
-            # 콘텐츠 요약
-            summary = self._summarize_youtube_content(video_info, transcript)
-            
-            return {
-                'success': True,
-                'title': video_info.get('title', ''),
-                'content': summary,
-                'summary': summary,
-                'url': url,
-                'source_type': 'youtube',
-                'original_title': video_info.get('title', ''),
-                'video_id': video_id,
-                'duration': video_info.get('duration', ''),
-                'channel': video_info.get('channel', ''),
-                'transcript': transcript
-            }
-            
+
+            # 자막이 정상적으로 추출된 경우에만 요약 생성
+            if transcript and not (
+                transcript.startswith('자막 추출 실패:') or
+                transcript.startswith('자막을 찾을 수 없습니다.') or
+                transcript.startswith('YouTube Transcript API가 설치되지 않아')
+            ):
+                summary = self._summarize_youtube_content(video_info, transcript)
+                return {
+                    'success': True,
+                    'title': video_info.get('title', ''),
+                    'content': summary,
+                    'summary': summary,
+                    'url': url,
+                    'source_type': 'youtube',
+                    'original_title': video_info.get('title', ''),
+                    'video_id': video_id,
+                    'duration': video_info.get('duration', ''),
+                    'channel': video_info.get('channel', ''),
+                    'transcript': transcript
+                }
+            else:
+                # 자막이 없거나 추출 실패 시 안내 메시지 반환
+                return {
+                    'success': False,
+                    'error': f'유튜브 자막을 추출할 수 없습니다.\n사유: {transcript}',
+                    'title': video_info.get('title', ''),
+                    'content': '',
+                    'summary': '',
+                    'url': url,
+                    'source_type': 'youtube',
+                    'original_title': video_info.get('title', ''),
+                    'video_id': video_id,
+                    'duration': video_info.get('duration', ''),
+                    'channel': video_info.get('channel', ''),
+                    'transcript': transcript
+                }
         except Exception as e:
             return {'success': False, 'error': f'YouTube 콘텐츠 추출 실패: {str(e)}'}
     
