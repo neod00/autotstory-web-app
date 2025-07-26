@@ -381,34 +381,36 @@ class URLContentExtractor:
             }
     
     def _get_youtube_transcript_web(self, video_id: str) -> str:
-        """유튜브 자막 추출 (한국어 자동 생성 포함, 언어 우선순위 개선)"""
+        """유튜브 자막 추출 (수동+자동 생성 자막 모두 지원)"""
         try:
             if not YOUTUBE_TRANSCRIPT_AVAILABLE:
                 return "YouTube Transcript API가 설치되지 않아 자막을 가져올 수 없습니다."
             transcript_data = None
-            # 1. 한국어 우선
             try:
-                transcript_data = YouTubeTranscriptApi.get_transcript(video_id, languages=['ko'])
-            except Exception:
-                # 2. 모든 자막 중에서 ko(한국어) 자동 생성 자막이 있으면 그걸 사용
+                transcripts = YouTubeTranscriptApi.list_transcripts(video_id)
+                # 1. 수동 생성 한국어 자막 우선
                 try:
-                    transcripts = YouTubeTranscriptApi.list_transcripts(video_id)
-                    for t in transcripts:
-                        if hasattr(t, 'language_code') and t.language_code == 'ko':
-                            transcript_data = t.fetch()
-                            break
+                    transcript = transcripts.find_manually_created_transcript(['ko'])
+                    transcript_data = transcript.fetch()
                 except Exception:
-                    pass
-                # 3. 그래도 없으면 영어(en) 시도
-                if transcript_data is None:
+                    # 2. 자동 생성 한국어 자막
                     try:
-                        transcript_data = YouTubeTranscriptApi.get_transcript(video_id, languages=['en'])
+                        transcript = transcripts.find_generated_transcript(['ko'])
+                        transcript_data = transcript.fetch()
                     except Exception:
-                        # 4. 마지막으로 아무 언어나 시도
+                        # 3. 영어 수동/자동 생성 자막
                         try:
-                            transcript_data = YouTubeTranscriptApi.get_transcript(video_id)
-                        except Exception as e:
-                            return f"자막 추출 실패: {str(e)}"
+                            transcript = transcripts.find_transcript(['en'])
+                            transcript_data = transcript.fetch()
+                        except Exception:
+                            # 4. 마지막으로 첫 번째 사용 가능한 자막
+                            try:
+                                transcript = list(transcripts)[0]
+                                transcript_data = transcript.fetch()
+                            except Exception as e:
+                                return f"자막 추출 실패: {str(e)}"
+            except Exception as e:
+                return f"자막 추출 실패: {str(e)}"
             if transcript_data:
                 formatter = TextFormatter()
                 return formatter.format_transcript(transcript_data)
