@@ -554,20 +554,32 @@ def main():
     if st.session_state.generated_content:
         st.markdown("---")
         st.markdown('<h2 class="sub-header">📄 생성된 콘텐츠</h2>', unsafe_allow_html=True)
-        
         content = st.session_state.generated_content
-        
-        # 탭으로 구분
-        tab1, tab2, tab3, tab4 = st.tabs(["📝 전체 보기", "📋 구조 보기", "🏷️ 메타데이터", "💾 다운로드"])
-        
+
+        # 유튜브 자막 안내 및 자막 원문 탭 추가
+        is_youtube = content.get('source_type') == 'youtube'
+        transcript = content.get('transcript', '')
+        transcript_success = transcript and not (
+            transcript.startswith('자막 추출 실패:') or
+            transcript.startswith('자막을 찾을 수 없습니다.') or
+            transcript.startswith('YouTube Transcript API가 설치되지 않아')
+        )
+        if is_youtube:
+            if transcript_success:
+                st.info(f"✅ 유튜브 자막 추출 성공 (길이: {len(transcript)} 글자)")
+            else:
+                st.error(f"❌ 유튜브 자막 추출 실패: {transcript}")
+
+        # 탭으로 구분 (자막 보기 탭 추가)
+        if is_youtube:
+            tab1, tab2, tab3, tab4, tab5 = st.tabs(["📝 전체 보기", "📋 구조 보기", "🏷️ 메타데이터", "💾 다운로드", "🎬 자막 보기"])
+        else:
+            tab1, tab2, tab3, tab4 = st.tabs(["📝 전체 보기", "📋 구조 보기", "🏷️ 메타데이터", "💾 다운로드"])
+
         with tab1:
             st.markdown(f"## {content['title']}")
-            
-            # 소스 정보 표시 (URL 기반 생성인 경우)
             if 'source_url' in content and content['source_url']:
                 st.info(f"📎 원본 소스: {content['source_url']} ({content.get('source_type', 'unknown')})")
-            
-            # 이미지 표시 (이미지가 있는 경우)
             if 'images' in content and content['images']:
                 st.markdown("### 🖼️ 관련 이미지")
                 for i, image in enumerate(content['images']):
@@ -578,46 +590,48 @@ def main():
                         st.markdown(f"**촬영자:** {image['photographer']}")
                         st.markdown(f"**크기:** {image['width']}x{image['height']}")
                         st.markdown(f"[Unsplash에서 보기]({image['unsplash_url']})")
-            
             st.markdown("### 서론")
-            st.write(content['introduction'])
+            if is_youtube and not transcript_success:
+                st.warning("유튜브 자막을 추출할 수 없어 본문이 생성되지 않았습니다.")
+            else:
+                st.write(content['introduction'])
             st.markdown("### 본론")
-            st.write(content['main_content'])
+            if is_youtube and not transcript_success:
+                st.warning("유튜브 자막을 추출할 수 없어 본문이 생성되지 않았습니다.")
+            else:
+                st.write(content['main_content'])
             st.markdown("### 결론")
-            st.write(content['conclusion'])
-        
+            if is_youtube and not transcript_success:
+                st.warning("유튜브 자막을 추출할 수 없어 결론이 생성되지 않았습니다.")
+            else:
+                st.write(content['conclusion'])
+
         with tab2:
             col1, col2 = st.columns(2)
             with col1:
                 st.markdown("#### 제목")
                 st.info(content['title'])
-                
                 st.markdown("#### 서론")
                 st.text_area("서론 내용", content['introduction'], height=200, disabled=True)
-            
             with col2:
                 st.markdown("#### 본론")
                 st.text_area("본론 내용", content['main_content'], height=300, disabled=True)
-                
                 st.markdown("#### 결론")
                 st.text_area("결론 내용", content['conclusion'], height=150, disabled=True)
-        
+
         with tab3:
             col1, col2 = st.columns(2)
             with col1:
                 st.markdown("#### 키워드")
                 for keyword in content['keywords']:
                     st.markdown(f"- {keyword}")
-            
             with col2:
                 st.markdown("#### 태그")
                 for tag in content['tags']:
                     st.markdown(f"- {tag}")
-        
+
         with tab4:
             st.markdown("### 다운로드 옵션")
-            
-            # JSON 다운로드
             json_data = json.dumps(content, ensure_ascii=False, indent=2)
             st.download_button(
                 label="📄 JSON 파일 다운로드",
@@ -625,8 +639,6 @@ def main():
                 file_name=f"blog_content_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
                 mime="application/json"
             )
-            
-            # HTML 다운로드
             html_content = generate_html_content(content)
             st.download_button(
                 label="🌐 HTML 파일 다운로드",
@@ -634,8 +646,6 @@ def main():
                 file_name=f"blog_content_{datetime.now().strftime('%Y%m%d_%H%M%S')}.html",
                 mime="text/html"
             )
-            
-            # 텍스트 다운로드
             text_content = f"""
 {content['title']}
 
@@ -657,6 +667,14 @@ def main():
                 file_name=f"blog_content_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
                 mime="text/plain"
             )
+
+        if is_youtube:
+            with tab5:
+                st.markdown("#### 유튜브 자막 원문")
+                if transcript_success:
+                    st.text_area("자막 전체 텍스트", transcript, height=400, disabled=True)
+                else:
+                    st.warning("유튜브 자막을 추출할 수 없습니다.")
 
 if __name__ == "__main__":
     main() 
