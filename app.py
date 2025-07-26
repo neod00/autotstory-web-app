@@ -565,10 +565,20 @@ def main():
             transcript.startswith('YouTube Transcript API가 설치되지 않아')
         )
         if is_youtube:
-            if transcript_success:
-                st.info(f"✅ 유튜브 자막 추출 성공 (길이: {len(transcript)} 글자)")
+            method = content.get('method', 'unknown')
+            if method == 'youtube_api':
+                st.success(f"✅ YouTube Data API v3로 자막 추출 성공 (길이: {len(transcript)} 글자)")
+            elif method == 'youtube_api_description':
+                st.info(f"ℹ️ YouTube Data API v3로 영상 설명 기반 생성 (자막 없음)")
+            elif method == 'transcript_api':
+                st.success(f"✅ youtube-transcript-api로 자막 추출 성공 (길이: {len(transcript)} 글자)")
+            elif method == 'fallback':
+                st.warning(f"⚠️ 제목 기반 fallback 생성 (자막 추출 실패)")
             else:
-                st.error(f"❌ 유튜브 자막 추출 실패: {transcript}")
+                if transcript_success:
+                    st.info(f"✅ 유튜브 자막 추출 성공 (길이: {len(transcript)} 글자)")
+                else:
+                    st.error(f"❌ 유튜브 자막 추출 실패: {transcript}")
 
         # 탭으로 구분 (자막 보기 탭 추가)
         if is_youtube:

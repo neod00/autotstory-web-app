@@ -45,6 +45,15 @@ except ImportError:
     YOUTUBE_TRANSCRIPT_AVAILABLE = False
     st.warning("⚠️ youtube-transcript-api가 설치되지 않아 유튜브 자막 추출 기능이 제한됩니다.")
 
+# YouTube Data API v3 (선택적 import)
+try:
+    from googleapiclient.discovery import build
+    from googleapiclient.errors import HttpError
+    YOUTUBE_API_AVAILABLE = True
+except ImportError:
+    YOUTUBE_API_AVAILABLE = False
+    st.warning("⚠️ google-api-python-client가 설치되지 않아 YouTube API 기능이 제한됩니다.")
+
 class URLContentExtractor:
     """URL에서 콘텐츠를 추출하는 클래스"""
     
@@ -53,6 +62,18 @@ class URLContentExtractor:
         self.session.headers.update({
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
         })
+        
+        # YouTube API 클라이언트 초기화
+        self.youtube_api_key = "AIzaSyD7N2hWrOMD7FbmlsTHZp_IrfiznTm29uU"
+        if self.youtube_api_key and YOUTUBE_API_AVAILABLE:
+            try:
+                self.youtube_client = build('youtube', 'v3', developerKey=self.youtube_api_key)
+                st.info("✅ YouTube Data API v3 클라이언트가 초기화되었습니다.")
+            except Exception as e:
+                self.youtube_client = None
+                st.warning(f"⚠️ YouTube API 클라이언트 초기화 실패: {e}")
+        else:
+            self.youtube_client = None
     
     def extract_content_from_url(self, url: str) -> Dict:
         """
@@ -125,59 +146,26 @@ class URLContentExtractor:
         return 'generic'
     
     def _extract_youtube_content(self, url: str) -> Dict:
-        """유튜브 영상에서 콘텐츠 추출 (딜레이+fallback)"""
+        """유튜브 영상에서 콘텐츠 추출 (YouTube API v3 우선, fallback)"""
         try:
             video_id = self._extract_video_id(url)
             if not video_id:
                 return {'success': False, 'error': '유효하지 않은 YouTube URL입니다.'}
             
-            # 비디오 정보 가져오기
-            video_info = self._get_youtube_video_info(video_id)
+            # 1. YouTube API v3 시도 (우선)
+            if self.youtube_client:
+                st.info("🔍 YouTube Data API v3로 콘텐츠 추출 시도 중...")
+                api_result = self._extract_with_youtube_api(video_id, url)
+                if api_result['success']:
+                    st.success("✅ YouTube API v3로 콘텐츠 추출 성공!")
+                    return api_result
+                else:
+                    st.warning(f"⚠️ YouTube API v3 실패: {api_result.get('error', '알 수 없는 오류')}")
             
-            # 1. 딜레이 추가 (2~4초 랜덤)
-            delay_sec = random.uniform(2, 4)
-            time.sleep(delay_sec)
+            # 2. 기존 youtube-transcript-api 시도 (fallback)
+            st.info("🔄 기존 youtube-transcript-api로 재시도 중...")
+            return self._extract_with_transcript_api(video_id, url)
             
-            # 자막 추출 시도
-            transcript = self._get_youtube_transcript_web(video_id)
-            
-            # 자막이 정상적으로 추출된 경우
-            if transcript and not (
-                transcript.startswith('자막 추출 실패:') or
-                transcript.startswith('자막을 찾을 수 없습니다.') or
-                transcript.startswith('YouTube Transcript API가 설치되지 않아') or
-                'Too Many Requests' in transcript or
-                'no element found' in transcript
-            ):
-                summary = self._summarize_youtube_content(video_info, transcript)
-                return {
-                    'success': True,
-                    'title': video_info.get('title', ''),
-                    'content': summary,
-                    'summary': summary,
-                    'url': url,
-                    'source_type': 'youtube',
-                    'original_title': video_info.get('title', ''),
-                    'video_id': video_id,
-                    'channel': video_info.get('channel', ''),
-                    'transcript': transcript
-                }
-            else:
-                # 2. fallback: 자막 추출 실패 시, 제목과 설명만으로 블로그 글 생성
-                fallback_content = self._generate_fallback_content(video_info)
-                return {
-                    'success': True,
-                    'title': video_info.get('title', ''),
-                    'content': fallback_content,
-                    'summary': fallback_content,
-                    'url': url,
-                    'source_type': 'youtube',
-                    'original_title': video_info.get('title', ''),
-                    'video_id': video_id,
-                    'channel': video_info.get('channel', ''),
-                    'transcript': transcript,
-                    'note': '자막 추출 실패로 제목과 설명만으로 생성되었습니다.'
-                }
         except Exception as e:
             return {'success': False, 'error': f'YouTube 콘텐츠 추출 실패: {str(e)}'}
     
@@ -584,6 +572,204 @@ class URLContentExtractor:
             return response.choices[0].message.content.strip()
         except Exception as e:
             return f"제목: {title}\n\n이 영상에 대한 자세한 내용은 유튜브에서 직접 확인해보세요."
+
+    def _extract_with_youtube_api(self, video_id: str, url: str) -> Dict:
+        """YouTube API v3로 콘텐츠 추출"""
+        try:
+            # 영상 정보 가져오기
+            video_info = self._get_video_info_api(video_id)
+            if 'error' in video_info:
+                return {'success': False, 'error': video_info['error']}
+            
+            # 자막 가져오기
+            captions = self._get_captions_api(video_id)
+            
+            if captions:
+                # 자막이 있으면 자막 기반 생성
+                transcript = self._download_caption_api(captions[0]['id'])
+                if transcript:
+                    summary = self._summarize_youtube_content(video_info, transcript)
+                    return {
+                        'success': True,
+                        'title': video_info['title'],
+                        'content': summary,
+                        'summary': summary,
+                        'url': url,
+                        'source_type': 'youtube',
+                        'original_title': video_info['title'],
+                        'video_id': video_id,
+                        'channel': video_info['channel'],
+                        'transcript': transcript,
+                        'method': 'youtube_api'
+                    }
+            
+            # 자막이 없으면 설명 기반 생성
+            if video_info.get('description'):
+                fallback_content = self._generate_from_description(video_info)
+                return {
+                    'success': True,
+                    'title': video_info['title'],
+                    'content': fallback_content,
+                    'summary': fallback_content,
+                    'url': url,
+                    'source_type': 'youtube',
+                    'original_title': video_info['title'],
+                    'video_id': video_id,
+                    'channel': video_info['channel'],
+                    'method': 'youtube_api_description'
+                }
+            
+            return {'success': False, 'error': 'YouTube API에서 데이터를 가져올 수 없습니다.'}
+            
+        except Exception as e:
+            return {'success': False, 'error': f'YouTube API 오류: {str(e)}'}
+    
+    def _extract_with_transcript_api(self, video_id: str, url: str) -> Dict:
+        """기존 youtube-transcript-api로 콘텐츠 추출 (fallback)"""
+        try:
+            # 비디오 정보 가져오기
+            video_info = self._get_youtube_video_info(video_id)
+            
+            # 딜레이 추가 (2~4초 랜덤)
+            delay_sec = random.uniform(2, 4)
+            time.sleep(delay_sec)
+            
+            # 자막 추출 시도
+            transcript = self._get_youtube_transcript_web(video_id)
+            
+            # 자막이 정상적으로 추출된 경우
+            if transcript and not (
+                transcript.startswith('자막 추출 실패:') or
+                transcript.startswith('자막을 찾을 수 없습니다.') or
+                transcript.startswith('YouTube Transcript API가 설치되지 않아') or
+                'Too Many Requests' in transcript or
+                'no element found' in transcript
+            ):
+                summary = self._summarize_youtube_content(video_info, transcript)
+                return {
+                    'success': True,
+                    'title': video_info.get('title', ''),
+                    'content': summary,
+                    'summary': summary,
+                    'url': url,
+                    'source_type': 'youtube',
+                    'original_title': video_info.get('title', ''),
+                    'video_id': video_id,
+                    'channel': video_info.get('channel', ''),
+                    'transcript': transcript,
+                    'method': 'transcript_api'
+                }
+            else:
+                # fallback: 자막 추출 실패 시, 제목과 설명만으로 블로그 글 생성
+                fallback_content = self._generate_fallback_content(video_info)
+                return {
+                    'success': True,
+                    'title': video_info.get('title', ''),
+                    'content': fallback_content,
+                    'summary': fallback_content,
+                    'url': url,
+                    'source_type': 'youtube',
+                    'original_title': video_info.get('title', ''),
+                    'video_id': video_id,
+                    'channel': video_info.get('channel', ''),
+                    'transcript': transcript,
+                    'note': '자막 추출 실패로 제목과 설명만으로 생성되었습니다.',
+                    'method': 'fallback'
+                }
+        except Exception as e:
+            return {'success': False, 'error': f'Transcript API 오류: {str(e)}'}
+    
+    def _get_video_info_api(self, video_id: str) -> Dict:
+        """YouTube API로 영상 정보 가져오기"""
+        try:
+            request = self.youtube_client.videos().list(
+                part='snippet,contentDetails',
+                id=video_id
+            )
+            response = request.execute()
+            
+            if response['items']:
+                video = response['items'][0]
+                return {
+                    'title': video['snippet']['title'],
+                    'description': video['snippet']['description'],
+                    'channel': video['snippet']['channelTitle'],
+                    'published_at': video['snippet']['publishedAt'],
+                    'duration': video['contentDetails']['duration']
+                }
+            return {'error': '영상을 찾을 수 없습니다.'}
+        except HttpError as e:
+            return {'error': str(e)}
+    
+    def _get_captions_api(self, video_id: str) -> List[Dict]:
+        """YouTube API로 자막 목록 가져오기"""
+        try:
+            request = self.youtube_client.captions().list(
+                part='snippet',
+                videoId=video_id
+            )
+            response = request.execute()
+            
+            captions = []
+            for item in response.get('items', []):
+                if item['snippet']['language'] == 'ko':
+                    captions.append({
+                        'id': item['id'],
+                        'language': item['snippet']['language'],
+                        'trackKind': item['snippet']['trackKind']
+                    })
+            
+            return captions
+        except HttpError:
+            return []
+    
+    def _download_caption_api(self, caption_id: str) -> str:
+        """YouTube API로 자막 내용 다운로드"""
+        try:
+            request = self.youtube_client.captions().download(
+                id=caption_id,
+                tfmt='srt'
+            )
+            response = request.execute()
+            return response.decode('utf-8')
+        except HttpError:
+            return ""
+    
+    def _generate_from_description(self, video_info: Dict) -> str:
+        """영상 설명으로 블로그 글 생성"""
+        title = video_info.get('title', '')
+        description = video_info.get('description', '')
+        channel = video_info.get('channel', '')
+        
+        prompt = f"""
+다음 유튜브 영상의 제목과 설명을 바탕으로 블로그 글을 작성해주세요:
+
+제목: {title}
+채널: {channel}
+설명: {description[:1000]}
+
+요구사항:
+1. 800-1200자 정도의 블로그 글 형태로 작성
+2. 제목과 설명에서 추출한 정보를 바탕으로 작성
+3. 구조화된 형태 (서론, 본론, 결론)
+4. 독자가 이해하기 쉽게 작성
+5. 핵심 내용을 명확하게 전달
+"""
+        
+        try:
+            if not openai.api_key:
+                return f"제목: {title}\n\n설명: {description[:500]}..."
+            
+            response = openai.ChatCompletion.create(
+                model="gpt-4o-mini",
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=1500,
+                temperature=0.7
+            )
+            
+            return response.choices[0].message.content.strip()
+        except Exception as e:
+            return f"제목: {title}\n\n설명: {description[:500]}..."
 
 def generate_blog_from_url(url: str, custom_angle: str = "") -> Dict:
     """
