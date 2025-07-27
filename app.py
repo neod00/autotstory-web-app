@@ -8,6 +8,13 @@ from datetime import datetime
 import os
 from typing import List, Dict, Optional
 import random
+import pickle
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from webdriver_manager.chrome import ChromeDriverManager
 
 # URL 콘텐츠 추출 모듈 import
 try:
@@ -44,60 +51,170 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# CSS 스타일링
+# CSS 스타일링 - 트렌드에 맞게 세련되게 개선
 st.markdown("""
 <style>
+    /* 전체 페이지 스타일 */
+    .main {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+    }
+    
+    /* 헤더 스타일 */
     .main-header {
-        font-size: 2.5rem;
-        font-weight: bold;
-        color: #1f77b4;
+        font-size: 3rem;
+        font-weight: 800;
+        background: linear-gradient(45deg, #667eea, #764ba2, #f093fb);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
         text-align: center;
         margin-bottom: 2rem;
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
     }
+    
     .sub-header {
-        font-size: 1.5rem;
+        font-size: 1.8rem;
         color: #2c3e50;
-        margin-bottom: 1rem;
+        margin-bottom: 1.5rem;
+        font-weight: 600;
     }
-    .feature-box {
-        background-color: #f8f9fa;
-        padding: 1rem;
-        border-radius: 10px;
-        border-left: 4px solid #1f77b4;
+    
+    /* 카드 스타일 */
+    .feature-card {
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(10px);
+        border-radius: 20px;
+        padding: 1.5rem;
         margin: 1rem 0;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        transition: all 0.3s ease;
     }
-    .success-box {
-        background-color: #d4edda;
-        border: 1px solid #c3e6cb;
-        border-radius: 10px;
-        padding: 1rem;
-        margin: 1rem 0;
+    
+    .feature-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
     }
-    .info-box {
-        background-color: #d1ecf1;
-        border: 1px solid #bee5eb;
-        border-radius: 10px;
-        padding: 1rem;
-        margin: 1rem 0;
-    }
+    
+    /* 버튼 스타일 */
     .stButton > button {
         width: 100%;
-        border-radius: 10px;
-        font-weight: bold;
+        border-radius: 15px;
+        font-weight: 600;
+        font-size: 1.1rem;
+        padding: 0.8rem 1.5rem;
+        background: linear-gradient(45deg, #667eea, #764ba2);
+        border: none;
+        color: white;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
     }
+    
+    .stButton > button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+    }
+    
+    /* 입력 필드 스타일 */
     .stTextInput > div > div > input {
-        border-radius: 10px;
+        border-radius: 15px;
+        border: 2px solid #e1e5e9;
+        padding: 0.8rem 1rem;
+        font-size: 1rem;
+        transition: all 0.3s ease;
     }
+    
+    .stTextInput > div > div > input:focus {
+        border-color: #667eea;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+    
     .stTextArea > div > div > textarea {
-        border-radius: 10px;
+        border-radius: 15px;
+        border: 2px solid #e1e5e9;
+        padding: 0.8rem 1rem;
+        font-size: 1rem;
+        transition: all 0.3s ease;
     }
+    
+    .stTextArea > div > div > textarea:focus {
+        border-color: #667eea;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+    
+    /* 사이드바 스타일 */
+    .css-1d391kg {
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(10px);
+        border-radius: 20px;
+        margin: 1rem;
+        padding: 1rem;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    }
+    
+    /* 성공/경고 메시지 스타일 */
+    .success-message {
+        background: linear-gradient(45deg, #4CAF50, #45a049);
+        color: white;
+        padding: 1rem;
+        border-radius: 15px;
+        margin: 1rem 0;
+        box-shadow: 0 4px 15px rgba(76, 175, 80, 0.3);
+    }
+    
+    .warning-message {
+        background: linear-gradient(45deg, #ff9800, #f57c00);
+        color: white;
+        padding: 1rem;
+        border-radius: 15px;
+        margin: 1rem 0;
+        box-shadow: 0 4px 15px rgba(255, 152, 0, 0.3);
+    }
+    
+    /* 탭 스타일 */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 8px;
+    }
+    
+    .stTabs [data-baseweb="tab"] {
+        border-radius: 15px;
+        background: rgba(255, 255, 255, 0.8);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        padding: 0.5rem 1rem;
+        margin: 0.25rem;
+    }
+    
+    .stTabs [aria-selected="true"] {
+        background: linear-gradient(45deg, #667eea, #764ba2);
+        color: white;
+    }
+    
+    /* 반응형 디자인 */
     @media (max-width: 768px) {
         .main-header {
-            font-size: 2rem;
+            font-size: 2.2rem;
         }
         .sub-header {
-            font-size: 1.2rem;
+            font-size: 1.4rem;
         }
+        .feature-card {
+            padding: 1rem;
+        }
+    }
+    
+    /* 로딩 애니메이션 */
+    .loading-spinner {
+        display: inline-block;
+        width: 20px;
+        height: 20px;
+        border: 3px solid rgba(255,255,255,.3);
+        border-radius: 50%;
+        border-top-color: #fff;
+        animation: spin 1s ease-in-out infinite;
+    }
+    
+    @keyframes spin {
+        to { transform: rotate(360deg); }
     }
 </style>
 """, unsafe_allow_html=True)
@@ -107,7 +224,242 @@ if 'generated_content' not in st.session_state:
     st.session_state.generated_content = None
 if 'current_step' not in st.session_state:
     st.session_state.current_step = 0
+if 'tistory_logged_in' not in st.session_state:
+    st.session_state.tistory_logged_in = False
 
+# 티스토리 로그인 클래스
+class TistoryLogin:
+    def __init__(self, driver_instance):
+        self.driver = driver_instance
+    
+    def complete_login(self):
+        """완전 자동 로그인"""
+        try:
+            username = os.getenv("TISTORY_USERNAME")
+            password = os.getenv("TISTORY_PASSWORD")
+            
+            if not username or not password:
+                st.error("❌ 환경변수 설정 필요: TISTORY_USERNAME, TISTORY_PASSWORD")
+                return False
+            
+            # 1단계: 로그인 페이지 접속
+            self.driver.get("https://www.tistory.com/auth/login")
+            WebDriverWait(self.driver, 15).until(
+                lambda driver: driver.execute_script("return document.readyState") == "complete"
+            )
+            time.sleep(3)
+            
+            # 2단계: 카카오 버튼 클릭
+            try:
+                kakao_btn = WebDriverWait(self.driver, 10).until(
+                    EC.element_to_be_clickable((By.CSS_SELECTOR, ".btn_login.link_kakao_id"))
+                )
+                kakao_btn.click()
+            except:
+                js_result = self.driver.execute_script("""
+                    var links = document.querySelectorAll('a');
+                    for (var i = 0; i < links.length; i++) {
+                        if (links[i].textContent.includes('카카오계정으로 로그인')) {
+                            links[i].click();
+                            return true;
+                        }
+                    }
+                    return false;
+                """)
+                if not js_result:
+                    return False
+            
+            # 3단계: 카카오 페이지 로딩 대기
+            WebDriverWait(self.driver, 15).until(
+                lambda driver: "kakao" in driver.current_url.lower() or 
+                              len(driver.find_elements(By.CSS_SELECTOR, "input[name='loginId']")) > 0
+            )
+            time.sleep(3)
+            
+            # 4단계: 아이디/비밀번호 입력
+            username_field = self.driver.find_element(By.CSS_SELECTOR, "input[name='loginId']")
+            username_field.clear()
+            username_field.send_keys(username)
+            
+            password_field = self.driver.find_element(By.CSS_SELECTOR, "input[type='password']")
+            password_field.clear()
+            password_field.send_keys(password)
+            
+            # 5단계: 로그인 버튼 클릭
+            login_btn = self.driver.find_element(By.CSS_SELECTOR, "button[type='submit']")
+            login_btn.click()
+            
+            # 6단계: 2단계 인증 처리
+            time.sleep(5)
+            current_url = self.driver.current_url
+            
+            if "tmsTwoStepVerification" in current_url or "verification" in current_url.lower():
+                st.info("📱 2단계 인증 필요! 핸드폰에서 카카오톡 알림을 확인하여 로그인을 승인해주세요!")
+                if self.wait_for_approval(max_wait_minutes=3):
+                    st.success("✅ 2단계 인증 승인 완료!")
+                else:
+                    st.error("❌ 2단계 인증 승인 시간 초과")
+                    return False
+            
+            # 7단계: OAuth 승인
+            time.sleep(3)
+            try:
+                continue_btn = self.driver.find_element(By.CSS_SELECTOR, "button.btn_agree[name='user_oauth_approval'][value='true']")
+                if continue_btn and continue_btn.is_displayed():
+                    continue_btn.click()
+            except:
+                pass
+            
+            # 8단계: 최종 확인
+            time.sleep(5)
+            if self.check_login_success():
+                st.success("🎉 티스토리 로그인 성공!")
+                return True
+            else:
+                st.error("❌ 로그인 실패")
+                return False
+                
+        except Exception as e:
+            st.error(f"❌ 로그인 중 오류: {e}")
+            return False
+    
+    def wait_for_approval(self, max_wait_minutes=3):
+        """2단계 인증 대기"""
+        start_time = time.time()
+        max_wait_seconds = max_wait_minutes * 60
+        
+        while time.time() - start_time < max_wait_seconds:
+            current_url = self.driver.current_url
+            if "tmsTwoStepVerification" not in current_url and "verification" not in current_url.lower():
+                return True
+            time.sleep(5)
+        return False
+    
+    def check_login_success(self):
+        """로그인 성공 확인"""
+        try:
+            current_url = self.driver.current_url
+            return "login" not in current_url.lower() and "auth" not in current_url.lower()
+        except:
+            return False
+
+# 티스토리 포스팅 함수들
+def handle_alerts(driver, max_attempts=5, action="accept"):
+    """알림 처리"""
+    for _ in range(max_attempts):
+        try:
+            alert = driver.switch_to.alert
+            if action == "accept":
+                alert.accept()
+            else:
+                alert.dismiss()
+            return True
+        except:
+            time.sleep(1)
+    return False
+
+def write_post_to_tistory(driver, blog_post):
+    """티스토리에 글 작성"""
+    try:
+        # 새 글 작성 페이지로 이동
+        driver.get("https://climate-insight.tistory.com/manage/newpost")
+        time.sleep(5)
+        handle_alerts(driver, action="accept")
+        
+        # 에디터 초기화
+        driver.execute_script("""
+            console.log("=== 에디터 초기화 시작 ===");
+            
+            // CodeMirror 에디터 초기화
+            var cmElements = document.querySelectorAll('.CodeMirror');
+            if (cmElements.length > 0) {
+                for (var i = 0; i < cmElements.length; i++) {
+                    if (cmElements[i].CodeMirror) {
+                        cmElements[i].CodeMirror.setValue("");
+                    }
+                }
+            }
+            
+            // 본문용 textarea 초기화
+            var textareas = document.querySelectorAll('textarea');
+            for (var i = 0; i < textareas.length; i++) {
+                var ta = textareas[i];
+                if (ta.id !== 'post-title-inp' && 
+                    !ta.className.includes('textarea_tit') && 
+                    ta.id !== 'tagText') {
+                    ta.value = "";
+                }
+            }
+            
+            // TinyMCE 에디터 초기화
+            if (typeof tinyMCE !== 'undefined' && tinyMCE.activeEditor) {
+                tinyMCE.activeEditor.setContent("");
+            }
+        """)
+        time.sleep(2)
+        
+        # 제목 입력
+        try:
+            title_field = driver.find_element(By.CSS_SELECTOR, "#post-title-inp")
+            title_field.clear()
+            title_field.send_keys(blog_post['title'])
+        except:
+            pass
+        
+        # HTML 콘텐츠 입력
+        try:
+            # HTML 모드로 전환
+            html_btn = driver.find_element(By.CSS_SELECTOR, "button[data-ke-name='html']")
+            html_btn.click()
+            time.sleep(2)
+            
+            # iframe 찾기
+            iframe = driver.find_element(By.CSS_SELECTOR, "iframe.iframe_editor")
+            driver.switch_to.frame(iframe)
+            
+            # HTML 콘텐츠 입력
+            editor = driver.find_element(By.CSS_SELECTOR, "body")
+            driver.execute_script("arguments[0].innerHTML = arguments[1];", editor, blog_post['content'])
+            
+            driver.switch_to.default_content()
+        except Exception as e:
+            st.error(f"HTML 콘텐츠 입력 실패: {e}")
+            return False
+        
+        # 태그 입력
+        try:
+            tag_field = driver.find_element(By.CSS_SELECTOR, "#tagText")
+            tag_field.clear()
+            tag_field.send_keys(blog_post['tags'])
+        except:
+            pass
+        
+        return True
+        
+    except Exception as e:
+        st.error(f"글 작성 실패: {e}")
+        return False
+
+def publish_post(driver):
+    """글 발행"""
+    try:
+        # 발행 버튼 클릭
+        publish_btn = driver.find_element(By.CSS_SELECTOR, "button.btn_publish")
+        publish_btn.click()
+        time.sleep(3)
+        
+        # 발행 확인
+        confirm_btn = driver.find_element(By.CSS_SELECTOR, "button.btn_confirm")
+        confirm_btn.click()
+        time.sleep(5)
+        
+        return True
+        
+    except Exception as e:
+        st.error(f"발행 실패: {e}")
+        return False
+
+# 기존 함수들 (간소화)
 def clean_generated_content(content):
     """생성된 콘텐츠 정리"""
     if not content:
@@ -129,7 +481,6 @@ def generate_blog_content(topic: str, custom_angle: str = "", use_ai: bool = Tru
     """블로그 콘텐츠 생성"""
     try:
         if not use_ai or not openai.api_key:
-            # 기본 템플릿 기반 생성
             return generate_basic_content(topic, custom_angle)
         
         # AI 기반 콘텐츠 생성
@@ -170,7 +521,6 @@ JSON 형식으로 응답해주세요:
         try:
             content_data = json.loads(content_text)
         except:
-            # JSON 파싱 실패시 텍스트 기반 파싱
             content_data = parse_text_content(content_text, topic)
         
         return content_data
@@ -178,121 +528,6 @@ JSON 형식으로 응답해주세요:
     except Exception as e:
         st.error(f"콘텐츠 생성 중 오류 발생: {str(e)}")
         return generate_basic_content(topic, custom_angle)
-
-def generate_blog_from_url_v2(url: str, custom_angle: str = "") -> Dict:
-    """URL 기반 블로그 콘텐츠 생성"""
-    if not URL_CONTENT_AVAILABLE:
-        st.error("❌ URL 콘텐츠 추출 모듈을 사용할 수 없습니다.")
-        return None
-    
-    try:
-        st.info(f"🔗 URL 기반 콘텐츠 생성 시작: {url}")
-        
-        # URL에서 콘텐츠 생성
-        url_result = generate_blog_from_url(url, custom_angle)
-        
-        if not url_result['success']:
-            st.error(f"❌ URL 콘텐츠 생성 실패: {url_result['error']}")
-            return None
-        
-        # 태그 정리
-        tags = url_result['tags'].strip()
-        if tags:
-            tags = tags.replace('#', '').strip()  # 해시태그 제거
-        
-        # 키워드 생성 (제목에서 추출)
-        keywords = extract_keywords_from_title(url_result['title'])
-        
-        # 이미지 검색 (이미지 생성 기능이 사용 가능한 경우)
-        images = []
-        if IMAGE_GENERATOR_AVAILABLE:
-            st.info("🖼️ 관련 이미지 검색 중...")
-            images = get_multiple_images_v2(keywords, count=3)
-        
-        # V2 시스템 호환 형식으로 변환
-        blog_post = {
-            'title': url_result['title'],
-            'introduction': url_result['content'][:600] + "..." if len(url_result['content']) > 600 else url_result['content'],
-            'main_content': url_result['content'],
-            'conclusion': generate_conclusion_from_content(url_result['content']),
-            'keywords': keywords,
-            'tags': tags.split(', ') if tags else [url_result['source_type'], '정보'],
-            'images': images,
-            'source_url': url_result['source_url'],
-            'source_type': url_result['source_type'],
-            'original_title': url_result.get('original_title', '')
-        }
-        
-        st.success("✅ URL 기반 블로그 포스트 생성 완료!")
-        return blog_post
-        
-    except Exception as e:
-        st.error(f"❌ URL 기반 콘텐츠 생성 중 오류 발생: {e}")
-        return None
-
-def extract_keywords_from_title(title: str) -> List[str]:
-    """제목에서 키워드 추출"""
-    try:
-        if not openai.api_key:
-            return [title, "정보", "가이드"]
-        
-        prompt = f"""
-다음 제목에서 SEO 키워드를 5-8개 추출해주세요:
-
-제목: {title}
-
-JSON 형식으로 응답해주세요:
-{{
-    "keywords": ["키워드1", "키워드2", "키워드3"]
-}}
-"""
-        
-        response = openai.ChatCompletion.create(
-            model="gpt-4o-mini",
-            messages=[{"role": "user", "content": prompt}],
-            max_tokens=200,
-            temperature=0.7
-        )
-        
-        content_text = response.choices[0].message.content.strip()
-        
-        try:
-            data = json.loads(content_text)
-            return data.get('keywords', [title, "정보", "가이드"])
-        except:
-            return [title, "정보", "가이드"]
-            
-    except Exception as e:
-        return [title, "정보", "가이드"]
-
-def generate_conclusion_from_content(content: str) -> str:
-    """콘텐츠에서 결론 생성"""
-    try:
-        if not openai.api_key:
-            return content[-300:] + "..." if len(content) > 300 else content
-        
-        prompt = f"""
-다음 콘텐츠의 결론 부분을 300-400자로 작성해주세요:
-
-콘텐츠: {content[:1000]}
-
-요구사항:
-1. 300-400자 정도의 결론
-2. 핵심 내용 요약
-3. 독자에게 도움이 되는 마무리
-"""
-        
-        response = openai.ChatCompletion.create(
-            model="gpt-4o-mini",
-            messages=[{"role": "user", "content": prompt}],
-            max_tokens=500,
-            temperature=0.7
-        )
-        
-        return response.choices[0].message.content.strip()
-        
-    except Exception as e:
-        return content[-300:] + "..." if len(content) > 300 else content
 
 def generate_basic_content(topic: str, custom_angle: str = "") -> Dict:
     """기본 템플릿 기반 콘텐츠 생성"""
@@ -356,10 +591,9 @@ def generate_basic_content(topic: str, custom_angle: str = "") -> Dict:
     keywords = [topic, f"{topic} 가이드", f"{topic} 방법", f"{topic} 팁", f"{topic} 정보"]
     tags = [topic, "가이드", "정보", "팁"]
 
-    # 이미지 검색 (이미지 생성 기능이 사용 가능한 경우)
+    # 이미지 검색
     images = []
     if IMAGE_GENERATOR_AVAILABLE:
-        st.info("🖼️ 관련 이미지 검색 중...")
         images = get_multiple_images_v2(keywords, count=3)
     
     return {
@@ -457,7 +691,7 @@ def generate_html_content(content_data: Dict) -> str:
 def main():
     # 헤더
     st.markdown('<h1 class="main-header">📝 AutoTstory</h1>', unsafe_allow_html=True)
-    st.markdown('<p style="text-align: center; font-size: 1.2rem; color: #666;">AI 기반 블로그 자동 생성기</p>', unsafe_allow_html=True)
+    st.markdown('<p style="text-align: center; font-size: 1.3rem; color: #666; margin-bottom: 2rem;">AI 기반 블로그 자동 생성기</p>', unsafe_allow_html=True)
     
     # 사이드바 설정
     with st.sidebar:
@@ -468,6 +702,16 @@ def main():
         if api_key:
             openai.api_key = api_key
             st.success("✅ API 키가 설정되었습니다")
+        
+        # 티스토리 로그인 정보
+        st.markdown("### 🔐 티스토리 로그인")
+        tistory_username = st.text_input("티스토리 아이디", type="default")
+        tistory_password = st.text_input("티스토리 비밀번호", type="password")
+        
+        if tistory_username and tistory_password:
+            os.environ["TISTORY_USERNAME"] = tistory_username
+            os.environ["TISTORY_PASSWORD"] = tistory_password
+            st.success("✅ 티스토리 로그인 정보가 설정되었습니다")
         
         # 모드 선택
         generation_mode = st.selectbox(
@@ -523,12 +767,14 @@ def main():
                     st.error("URL을 입력해주세요!")
                 else:
                     with st.spinner("URL에서 콘텐츠를 추출하고 블로그를 생성하고 있습니다..."):
-                        content_data = generate_blog_from_url_v2(url, custom_angle)
-                        
-                        if content_data:
-                            st.session_state.generated_content = content_data
-                            st.session_state.current_step = 1
-                            st.success("✅ URL 기반 블로그 콘텐츠가 생성되었습니다!")
+                        if URL_CONTENT_AVAILABLE:
+                            content_data = generate_blog_from_url(url, custom_angle)
+                            if content_data:
+                                st.session_state.generated_content = content_data
+                                st.session_state.current_step = 1
+                                st.success("✅ URL 기반 블로그 콘텐츠가 생성되었습니다!")
+                        else:
+                            st.error("URL 콘텐츠 추출 기능을 사용할 수 없습니다.")
     
     with col2:
         st.markdown('<h3 class="sub-header">📋 기능 안내</h3>', unsafe_allow_html=True)
@@ -544,11 +790,13 @@ def main():
             "🏷️ 키워드 및 태그 자동 생성",
             "🔥 실시간 트렌드 분석",
             "📱 모바일 최적화",
-            "⚡ 빠른 생성 속도"
+            "⚡ 빠른 생성 속도",
+            "🔐 티스토리 자동 로그인",
+            "🚀 자동 글 업로드"
         ]
         
         for feature in features:
-            st.markdown(f"<div class='feature-box'>{feature}</div>", unsafe_allow_html=True)
+            st.markdown(f"<div class='feature-card'>{feature}</div>", unsafe_allow_html=True)
     
     # 생성된 콘텐츠 표시
     if st.session_state.generated_content:
@@ -556,42 +804,11 @@ def main():
         st.markdown('<h2 class="sub-header">📄 생성된 콘텐츠</h2>', unsafe_allow_html=True)
         content = st.session_state.generated_content
 
-        # 유튜브 자막 안내 및 자막 원문 탭 추가
-        is_youtube = content.get('source_type') == 'youtube'
-        transcript = content.get('transcript', '')
-        transcript_success = transcript and not (
-            transcript.startswith('자막 추출 실패:') or
-            transcript.startswith('자막을 찾을 수 없습니다.') or
-            transcript.startswith('YouTube Transcript API가 설치되지 않아')
-        )
-        if is_youtube:
-            method = content.get('method', 'unknown')
-            if method == 'youtube_api_with_transcript':
-                st.success(f"✅ YouTube Data API v3 + youtube-transcript-api로 자막 추출 성공 (길이: {len(transcript)} 글자)")
-            elif method == 'youtube_api':
-                st.success(f"✅ YouTube Data API v3로 자막 추출 성공 (길이: {len(transcript)} 글자)")
-            elif method == 'youtube_api_description':
-                st.info(f"ℹ️ YouTube Data API v3로 영상 설명 기반 생성 (자막 없음)")
-            elif method == 'transcript_api':
-                st.success(f"✅ youtube-transcript-api로 자막 추출 성공 (길이: {len(transcript)} 글자)")
-            elif method == 'fallback':
-                st.warning(f"⚠️ 제목 기반 fallback 생성 (자막 추출 실패)")
-            else:
-                if transcript_success:
-                    st.info(f"✅ 유튜브 자막 추출 성공 (길이: {len(transcript)} 글자)")
-                else:
-                    st.error(f"❌ 유튜브 자막 추출 실패: {transcript}")
-
-        # 탭으로 구분 (자막 보기 탭 추가)
-        if is_youtube:
-            tab1, tab2, tab3, tab4, tab5 = st.tabs(["📝 전체 보기", "📋 구조 보기", "🏷️ 메타데이터", "💾 다운로드", "🎬 자막 보기"])
-        else:
-            tab1, tab2, tab3, tab4 = st.tabs(["📝 전체 보기", "📋 구조 보기", "🏷️ 메타데이터", "💾 다운로드"])
+        # 탭으로 구분
+        tab1, tab2, tab3, tab4, tab5 = st.tabs(["📝 전체 보기", "📋 구조 보기", "🏷️ 메타데이터", "💾 다운로드", "🚀 티스토리 업로드"])
 
         with tab1:
             st.markdown(f"## {content['title']}")
-            if 'source_url' in content and content['source_url']:
-                st.info(f"📎 원본 소스: {content['source_url']} ({content.get('source_type', 'unknown')})")
             if 'images' in content and content['images']:
                 st.markdown("### 🖼️ 관련 이미지")
                 for i, image in enumerate(content['images']):
@@ -603,20 +820,11 @@ def main():
                         st.markdown(f"**크기:** {image['width']}x{image['height']}")
                         st.markdown(f"[Unsplash에서 보기]({image['unsplash_url']})")
             st.markdown("### 서론")
-            if is_youtube and not transcript_success:
-                st.warning("유튜브 자막을 추출할 수 없어 본문이 생성되지 않았습니다.")
-            else:
-                st.write(content['introduction'])
+            st.write(content['introduction'])
             st.markdown("### 본론")
-            if is_youtube and not transcript_success:
-                st.warning("유튜브 자막을 추출할 수 없어 본문이 생성되지 않았습니다.")
-            else:
-                st.write(content['main_content'])
+            st.write(content['main_content'])
             st.markdown("### 결론")
-            if is_youtube and not transcript_success:
-                st.warning("유튜브 자막을 추출할 수 없어 결론이 생성되지 않았습니다.")
-            else:
-                st.write(content['conclusion'])
+            st.write(content['conclusion'])
 
         with tab2:
             col1, col2 = st.columns(2)
@@ -680,13 +888,57 @@ def main():
                 mime="text/plain"
             )
 
-        if is_youtube:
-            with tab5:
-                st.markdown("#### 유튜브 자막 원문")
-                if transcript_success:
-                    st.text_area("자막 전체 텍스트", transcript, height=400, disabled=True)
-                else:
-                    st.warning("유튜브 자막을 추출할 수 없습니다.")
+        with tab5:
+            st.markdown("### 🚀 티스토리 자동 업로드")
+            
+            if not os.getenv("TISTORY_USERNAME") or not os.getenv("TISTORY_PASSWORD"):
+                st.warning("⚠️ 티스토리 로그인 정보를 사이드바에서 설정해주세요.")
+            else:
+                if st.button("🔐 티스토리 로그인 및 업로드", type="primary"):
+                    with st.spinner("티스토리에 로그인하고 글을 업로드하고 있습니다..."):
+                        try:
+                            # ChromeOptions 설정
+                            options = webdriver.ChromeOptions()
+                            options.add_argument("--disable-blink-features=AutomationControlled")
+                            options.add_experimental_option("excludeSwitches", ["enable-automation"])
+                            options.add_experimental_option("useAutomationExtension", False)
+                            
+                            # WebDriver 설정
+                            driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
+                            
+                            try:
+                                # 로그인
+                                login = TistoryLogin(driver)
+                                login_success = login.complete_login()
+                                
+                                if login_success:
+                                    st.session_state.tistory_logged_in = True
+                                    
+                                    # 글 작성
+                                    write_success = write_post_to_tistory(driver, content)
+                                    
+                                    if write_success:
+                                        st.success("✅ 글 작성 완료!")
+                                        
+                                        # 발행 여부 확인
+                                        if st.button("🚀 글 발행하기", type="primary"):
+                                            publish_success = publish_post(driver)
+                                            if publish_success:
+                                                st.success("🎉 글 발행 완료!")
+                                            else:
+                                                st.error("❌ 발행 실패")
+                                        else:
+                                            st.info("📝 임시저장 상태로 유지됩니다.")
+                                    else:
+                                        st.error("❌ 글 작성 실패")
+                                else:
+                                    st.error("❌ 티스토리 로그인 실패")
+                                    
+                            finally:
+                                driver.quit()
+                                
+                        except Exception as e:
+                            st.error(f"❌ 업로드 중 오류: {e}")
 
 if __name__ == "__main__":
     main() 

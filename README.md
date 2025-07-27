@@ -1,184 +1,165 @@
-# 📝 AutoTstory - 블로그 자동 생성기
+# AutoTstory - AI 기반 블로그 자동 생성기
 
-AI 기반 블로그 콘텐츠 자동 생성 웹 애플리케이션입니다.
+트렌드에 맞게 세련되게 디자인된 AI 기반 블로그 자동 생성기입니다. 티스토리 자동 로그인 및 글 업로드 기능을 포함하고 있습니다.
 
 ## 🚀 주요 기능
 
-- **🤖 AI 기반 콘텐츠 생성**: OpenAI GPT 모델을 활용한 고품질 블로그 글 생성
-- **📝 SEO 최적화**: 검색엔진 최적화된 제목과 키워드 자동 생성
-- **📊 구조화된 글 작성**: 서론, 본론, 결론이 체계적으로 구성된 글
-- **🏷️ 메타데이터 자동 생성**: 키워드와 태그 자동 생성
-- **📱 모바일 최적화**: 반응형 디자인으로 모든 디바이스에서 최적 경험
-- **💾 다양한 형식 다운로드**: JSON, HTML, 텍스트 파일로 다운로드 가능
+### 🤖 AI 기반 콘텐츠 생성
+- OpenAI GPT 모델을 활용한 고품질 블로그 글 생성
+- SEO 최적화된 제목 및 키워드 자동 생성
+- 구조화된 글 작성 (서론, 본론, 결론)
 
-## 🛠️ 기술 스택
+### 🔗 URL 기반 콘텐츠 추출
+- YouTube 영상 자막 추출 및 블로그 글 변환
+- 네이버 뉴스/블로그 콘텐츠 스크래핑
+- 일반 웹사이트 콘텐츠 추출
 
-- **Frontend**: Streamlit
-- **AI**: OpenAI GPT-4o-mini
-- **Backend**: Python
-- **Deployment**: Streamlit Cloud
+### 🖼️ 이미지 자동 생성
+- Unsplash API를 활용한 고품질 이미지 검색
+- 키워드 기반 관련 이미지 자동 매칭
+- 이미지 출처 및 저작권 정보 자동 포함
+
+### 🔐 티스토리 자동 로그인
+- 완전 자동화된 티스토리 로그인 시스템
+- 카카오 계정 연동 지원
+- 2단계 인증 자동 처리
+
+### 🚀 자동 글 업로드
+- 생성된 콘텐츠를 티스토리에 자동 업로드
+- HTML 에디터 자동 전환 및 콘텐츠 입력
+- 태그 및 메타데이터 자동 설정
+
+### 📊 트렌드 분석
+- 실시간 트렌드 키워드 수집
+- 네이버/구글 트렌드 분석
+- 계절별/카테고리별 맞춤 주제 제안
+
+## 🎨 디자인 특징
+
+### 세련된 UI/UX
+- 그라데이션 배경과 모던한 카드 디자인
+- 반응형 레이아웃 (모바일 최적화)
+- 부드러운 애니메이션과 호버 효과
+- 직관적인 탭 기반 인터페이스
+
+### 사용자 친화적 기능
+- 실시간 진행 상황 표시
+- 에러 처리 및 복구 시스템
+- 다운로드 옵션 (JSON, HTML, TXT)
+- 미리보기 기능
 
 ## 📦 설치 및 실행
 
-### 로컬 실행
-
-1. **저장소 클론**
+### 1. 저장소 클론
 ```bash
 git clone <repository-url>
 cd DeploybyStreamlit
 ```
 
-2. **의존성 설치**
+### 2. 의존성 설치
 ```bash
 pip install -r requirements.txt
 ```
 
-3. **환경 변수 설정**
-```bash
-# .env 파일 생성
+### 3. 환경변수 설정
+`.env` 파일을 생성하고 다음 정보를 입력하세요:
+
+```env
 OPENAI_API_KEY=your_openai_api_key_here
+TISTORY_USERNAME=your_tistory_username
+TISTORY_PASSWORD=your_tistory_password
 ```
 
-4. **앱 실행**
+### 4. Streamlit 앱 실행
 ```bash
 streamlit run app.py
 ```
 
-### Streamlit Cloud 배포
+## 🔧 사용 방법
 
-1. **GitHub에 코드 푸시**
-```bash
-git add .
-git commit -m "Initial commit"
-git push origin main
-```
+### 1. 주제 기반 블로그 생성
+1. 사이드바에서 OpenAI API 키 입력
+2. "📝 주제 기반 생성" 선택
+3. 블로그 주제 입력
+4. 특별한 각도나 요구사항 입력 (선택사항)
+5. "🚀 블로그 생성하기" 클릭
 
-2. **Streamlit Cloud에서 배포**
-   - [share.streamlit.io](https://share.streamlit.io/) 접속
-   - GitHub 계정 연결
-   - 저장소 선택
-   - 배포 설정 완료
+### 2. URL 기반 블로그 생성
+1. "🔗 URL 기반 생성" 선택
+2. YouTube, 네이버 뉴스, 블로그 URL 입력
+3. 특별한 각도나 요구사항 입력 (선택사항)
+4. "🚀 URL에서 블로그 생성하기" 클릭
 
-## 🎯 사용 방법
+### 3. 티스토리 자동 업로드
+1. 사이드바에서 티스토리 로그인 정보 입력
+2. 콘텐츠 생성 완료 후 "🚀 티스토리 업로드" 탭 선택
+3. "🔐 티스토리 로그인 및 업로드" 클릭
+4. 2단계 인증 승인 (필요시)
+5. 글 발행 여부 선택
 
-### 1. 기본 사용법
-
-1. **주제 입력**: 블로그 글의 주제를 입력합니다
-2. **요구사항 추가** (선택사항): 특별한 관점이나 추가 요구사항을 입력합니다
-3. **생성 모드 선택**: AI 기반 생성 또는 기본 템플릿 생성 중 선택
-4. **생성 버튼 클릭**: 블로그 콘텐츠를 생성합니다
-
-### 2. 생성된 콘텐츠 활용
-
-- **전체 보기**: 생성된 글의 전체 내용을 확인
-- **구조 보기**: 제목, 서론, 본론, 결론을 개별적으로 확인
-- **메타데이터**: 키워드와 태그 정보 확인
-- **다운로드**: JSON, HTML, 텍스트 파일로 다운로드
-
-## ⚙️ 설정
-
-### OpenAI API 키 설정
-
-AI 기반 생성 기능을 사용하려면 OpenAI API 키가 필요합니다:
-
-1. [OpenAI](https://platform.openai.com/)에서 API 키 발급
-2. 앱의 사이드바에서 API 키 입력
-3. AI 기반 생성 모드 선택
-
-### 환경 변수
-
-```bash
-OPENAI_API_KEY=your_openai_api_key_here
-```
-
-## 📁 프로젝트 구조
+## 📁 파일 구조
 
 ```
 DeploybyStreamlit/
 ├── app.py                 # 메인 Streamlit 앱
+├── url_extractor.py       # URL 콘텐츠 추출 모듈
+├── image_generator.py     # 이미지 생성 모듈
+├── trend_analyzer.py      # 트렌드 분석 모듈
 ├── requirements.txt       # Python 의존성
-├── README.md            # 프로젝트 문서
-└── .env                 # 환경 변수 (로컬용)
+└── README.md             # 프로젝트 문서
 ```
 
-## 🔧 주요 함수
+## 🔧 기술 스택
 
-### `generate_blog_content(topic, custom_angle, use_ai)`
-- 주제와 요구사항을 받아 블로그 콘텐츠를 생성
-- AI 모드와 기본 템플릿 모드 지원
+- **Frontend**: Streamlit
+- **AI**: OpenAI GPT-4o-mini
+- **Web Scraping**: Selenium, BeautifulSoup
+- **Image API**: Unsplash API
+- **Browser Automation**: Selenium WebDriver
+- **Styling**: Custom CSS with modern design
 
-### `generate_basic_content(topic, custom_angle)`
-- AI 없이 기본 템플릿을 사용한 콘텐츠 생성
+## ⚠️ 주의사항
 
-### `parse_text_content(content_text, topic)`
-- AI 응답을 파싱하여 구조화된 데이터로 변환
+1. **API 키 보안**: OpenAI API 키와 티스토리 로그인 정보를 안전하게 보관하세요.
+2. **사용량 제한**: OpenAI API와 Unsplash API의 사용량 제한을 확인하세요.
+3. **웹 스크래핑**: 웹사이트의 이용약관을 준수하고 과도한 요청을 피하세요.
+4. **자동화**: 티스토리 자동 업로드는 개인적인 용도로만 사용하세요.
 
-### `generate_html_content(content_data)`
-- 생성된 콘텐츠를 HTML 형식으로 변환
+## 🛠️ 개발 및 기여
 
-## 🎨 UI/UX 특징
-
-- **반응형 디자인**: 모바일, 태블릿, 데스크톱 최적화
-- **직관적인 인터페이스**: 사용자 친화적인 UI/UX
-- **실시간 피드백**: 생성 과정과 결과를 실시간으로 확인
-- **탭 기반 레이아웃**: 콘텐츠를 체계적으로 구분하여 표시
-
-## 🚀 배포 가이드
-
-### Streamlit Cloud 배포
-
-1. **GitHub 저장소 준비**
-   - 모든 파일이 올바른 위치에 있는지 확인
-   - requirements.txt가 최신 상태인지 확인
-
-2. **Streamlit Cloud 설정**
-   - GitHub 계정 연결
-   - 저장소 선택
-   - 메인 파일 경로: `app.py`
-   - Python 버전: 3.9+
-
-3. **환경 변수 설정**
-   - Streamlit Cloud 대시보드에서 환경 변수 설정
-   - `OPENAI_API_KEY` 추가
-
-### 로컬 개발
-
+### 로컬 개발 환경 설정
 ```bash
-# 개발 서버 실행
-streamlit run app.py --server.port 8501
+# 가상환경 생성
+python -m venv venv
 
-# 디버그 모드
-streamlit run app.py --logger.level debug
+# 가상환경 활성화
+# Windows
+venv\Scripts\activate
+# macOS/Linux
+source venv/bin/activate
+
+# 의존성 설치
+pip install -r requirements.txt
+
+# 개발 서버 실행
+streamlit run app.py
 ```
 
-## 🔒 보안 고려사항
-
-- API 키는 환경 변수로 관리
-- 사용자 입력 데이터 검증
-- HTTPS 통신 보장
-
-## 📊 성능 최적화
-
-- **캐싱**: 세션 상태를 활용한 결과 캐싱
-- **비동기 처리**: 대용량 데이터 처리 최적화
-- **메모리 관리**: 효율적인 메모리 사용
-
-## 🤝 기여하기
-
-1. Fork the Project
-2. Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the Branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
+### 코드 기여
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests if applicable
+5. Submit a pull request
 
 ## 📄 라이선스
 
 이 프로젝트는 MIT 라이선스 하에 배포됩니다.
 
-## 📞 문의
+## 🤝 지원
 
-프로젝트에 대한 문의사항이 있으시면 이슈를 생성해 주세요.
+문제가 발생하거나 기능 요청이 있으시면 이슈를 생성해 주세요.
 
 ---
 
-**AutoTstory** - AI 기반 블로그 자동 생성기 🚀 
+**AutoTstory** - AI로 더 스마트한 블로그 작성 🚀 
