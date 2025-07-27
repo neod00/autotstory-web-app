@@ -51,49 +51,60 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# CSS 스타일링 - 트렌드에 맞게 세련되게 개선
+# CSS 스타일링 - 더 현대적이고 깔끔하게 개선
 st.markdown("""
 <style>
     /* 전체 페이지 스타일 */
     .main {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         min-height: 100vh;
+        padding: 2rem 0;
     }
     
     /* 헤더 스타일 */
     .main-header {
-        font-size: 3rem;
-        font-weight: 800;
+        font-size: 3.5rem;
+        font-weight: 900;
         background: linear-gradient(45deg, #667eea, #764ba2, #f093fb);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         text-align: center;
-        margin-bottom: 2rem;
+        margin-bottom: 1rem;
         text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+        letter-spacing: -0.02em;
     }
     
     .sub-header {
-        font-size: 1.8rem;
-        color: #2c3e50;
-        margin-bottom: 1.5rem;
-        font-weight: 600;
+        font-size: 1.4rem;
+        color: rgba(255, 255, 255, 0.9);
+        text-align: center;
+        margin-bottom: 3rem;
+        font-weight: 400;
+        text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    /* 메인 컨테이너 스타일 */
+    .main-container {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 0 2rem;
     }
     
     /* 카드 스타일 */
-    .feature-card {
+    .content-card {
         background: rgba(255, 255, 255, 0.95);
-        backdrop-filter: blur(10px);
-        border-radius: 20px;
-        padding: 1.5rem;
-        margin: 1rem 0;
+        backdrop-filter: blur(20px);
+        border-radius: 24px;
+        padding: 2.5rem;
+        margin: 2rem 0;
         border: 1px solid rgba(255, 255, 255, 0.2);
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-        transition: all 0.3s ease;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
+        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
     }
     
-    .feature-card:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+    .content-card:hover {
+        transform: translateY(-8px);
+        box-shadow: 0 30px 80px rgba(0, 0, 0, 0.15);
     }
     
     /* 버튼 스타일 */
@@ -691,7 +702,7 @@ def generate_html_content(content_data: Dict) -> str:
 def main():
     # 헤더
     st.markdown('<h1 class="main-header">📝 AutoTstory</h1>', unsafe_allow_html=True)
-    st.markdown('<p style="text-align: center; font-size: 1.3rem; color: #666; margin-bottom: 2rem;">AI 기반 블로그 자동 생성기</p>', unsafe_allow_html=True)
+    st.markdown('<p class="sub-header">AI 기반 블로그 자동 생성기</p>', unsafe_allow_html=True)
     
     # 사이드바 설정
     with st.sidebar:
@@ -725,83 +736,64 @@ def main():
         if st.session_state.generated_content:
             st.metric("생성된 글자 수", len(str(st.session_state.generated_content)))
     
-    # 메인 컨텐츠
-    col1, col2 = st.columns([2, 1])
+    # 메인 컨텐츠 - 중앙 정렬된 단일 컬럼
+    st.markdown('<div class="main-container">', unsafe_allow_html=True)
     
-    with col1:
-        st.markdown('<h2 class="sub-header">🎯 블로그 콘텐츠 생성</h2>', unsafe_allow_html=True)
+    st.markdown('<div class="content-card">', unsafe_allow_html=True)
+    st.markdown('<h2 class="section-title">🎯 블로그 콘텐츠 생성</h2>', unsafe_allow_html=True)
+    
+    # 생성 방식 선택
+    generation_type = st.radio(
+        "생성 방식 선택",
+        ["📝 주제 기반 생성", "🔗 URL 기반 생성"],
+        help="주제를 직접 입력하거나 URL에서 콘텐츠를 추출할 수 있습니다"
+    )
+    
+    if generation_type == "📝 주제 기반 생성":
+        # 주제 기반 생성
+        topic = st.text_input("주제 입력", placeholder="예: 인공지능, 마케팅 전략, 건강 관리...")
+        custom_angle = st.text_area("특별한 각도나 요구사항", placeholder="원하는 특별한 관점이나 추가 요구사항이 있다면 입력하세요...")
         
-        # 생성 방식 선택
-        generation_type = st.radio(
-            "생성 방식 선택",
-            ["📝 주제 기반 생성", "🔗 URL 기반 생성"],
-            help="주제를 직접 입력하거나 URL에서 콘텐츠를 추출할 수 있습니다"
-        )
+        # 생성 버튼
+        if st.button("🚀 블로그 생성하기", type="primary"):
+            if not topic:
+                st.error("주제를 입력해주세요!")
+            else:
+                with st.spinner("블로그 콘텐츠를 생성하고 있습니다..."):
+                    use_ai = generation_mode == "AI 기반 생성"
+                    content_data = generate_blog_content(topic, custom_angle, use_ai)
+                    
+                    if content_data:
+                        st.session_state.generated_content = content_data
+                        st.session_state.current_step = 1
+                        st.success("✅ 블로그 콘텐츠가 생성되었습니다!")
+    
+    else:
+        # URL 기반 생성
+        url = st.text_input("URL 입력", placeholder="예: https://youtube.com/watch?v=..., https://news.naver.com/...")
+        custom_angle = st.text_area("특별한 각도나 요구사항", placeholder="원하는 특별한 관점이나 추가 요구사항이 있다면 입력하세요...")
         
-        if generation_type == "📝 주제 기반 생성":
-            # 주제 기반 생성
-            topic = st.text_input("주제 입력", placeholder="예: 인공지능, 마케팅 전략, 건강 관리...")
-            custom_angle = st.text_area("특별한 각도나 요구사항", placeholder="원하는 특별한 관점이나 추가 요구사항이 있다면 입력하세요...")
-            
-            # 생성 버튼
-            if st.button("🚀 블로그 생성하기", type="primary"):
-                if not topic:
-                    st.error("주제를 입력해주세요!")
-                else:
-                    with st.spinner("블로그 콘텐츠를 생성하고 있습니다..."):
-                        use_ai = generation_mode == "AI 기반 생성"
-                        content_data = generate_blog_content(topic, custom_angle, use_ai)
-                        
+        if st.button("🚀 URL에서 블로그 생성하기", type="primary"):
+            if not url:
+                st.error("URL을 입력해주세요!")
+            else:
+                with st.spinner("URL에서 콘텐츠를 추출하고 블로그를 생성하고 있습니다..."):
+                    if URL_CONTENT_AVAILABLE:
+                        content_data = generate_blog_from_url(url, custom_angle)
                         if content_data:
                             st.session_state.generated_content = content_data
                             st.session_state.current_step = 1
-                            st.success("✅ 블로그 콘텐츠가 생성되었습니다!")
-        
-        else:
-            # URL 기반 생성
-            url = st.text_input("URL 입력", placeholder="예: https://youtube.com/watch?v=..., https://news.naver.com/...")
-            custom_angle = st.text_area("특별한 각도나 요구사항", placeholder="원하는 특별한 관점이나 추가 요구사항이 있다면 입력하세요...")
-            
-            if st.button("🚀 URL에서 블로그 생성하기", type="primary"):
-                if not url:
-                    st.error("URL을 입력해주세요!")
-                else:
-                    with st.spinner("URL에서 콘텐츠를 추출하고 블로그를 생성하고 있습니다..."):
-                        if URL_CONTENT_AVAILABLE:
-                            content_data = generate_blog_from_url(url, custom_angle)
-                            if content_data:
-                                st.session_state.generated_content = content_data
-                                st.session_state.current_step = 1
-                                st.success("✅ URL 기반 블로그 콘텐츠가 생성되었습니다!")
-                        else:
-                            st.error("URL 콘텐츠 추출 기능을 사용할 수 없습니다.")
+                            st.success("✅ URL 기반 블로그 콘텐츠가 생성되었습니다!")
+                    else:
+                        st.error("URL 콘텐츠 추출 기능을 사용할 수 없습니다.")
     
-    with col2:
-        st.markdown('<h3 class="sub-header">📋 기능 안내</h3>', unsafe_allow_html=True)
-        
-        features = [
-            "🤖 AI 기반 콘텐츠 생성",
-            "🔗 URL 기반 콘텐츠 추출",
-            "📺 YouTube 자막 추출",
-            "📰 뉴스/블로그 스크래핑",
-            "🖼️ Unsplash 이미지 자동 생성",
-            "📝 SEO 최적화된 제목",
-            "📊 구조화된 글 작성",
-            "🏷️ 키워드 및 태그 자동 생성",
-            "🔥 실시간 트렌드 분석",
-            "📱 모바일 최적화",
-            "⚡ 빠른 생성 속도",
-            "🔐 티스토리 자동 로그인",
-            "🚀 자동 글 업로드"
-        ]
-        
-        for feature in features:
-            st.markdown(f"<div class='feature-card'>{feature}</div>", unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
     
     # 생성된 콘텐츠 표시
     if st.session_state.generated_content:
-        st.markdown("---")
-        st.markdown('<h2 class="sub-header">📄 생성된 콘텐츠</h2>', unsafe_allow_html=True)
+        st.markdown('<div class="content-card">', unsafe_allow_html=True)
+        st.markdown('<h2 class="section-title">📄 생성된 콘텐츠</h2>', unsafe_allow_html=True)
         content = st.session_state.generated_content
 
         # 탭으로 구분
@@ -939,6 +931,8 @@ def main():
                                 
                         except Exception as e:
                             st.error(f"❌ 업로드 중 오류: {e}")
+        
+        st.markdown('</div>', unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main() 
